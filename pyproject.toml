@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cbb-stage1"
+version = "0.1.0"
+description = "CBB stage-1 extraction pipeline (v6.1 / box v2.2)"
+requires-python = ">=3.12"
+dependencies = [
+  "pydantic>=2.7",
+  "httpx>=0.27",
+  "ebooklib>=0.18",
+  "beautifulsoup4>=4.12",
+  "rapidfuzz>=3.9",
+  "jieba>=0.42",
+  "PyYAML>=6.0",
+  "jsonschema>=4.22",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    # The gates in README ("提交前应全绿") call these two. They were installed ad hoc on
+    # the building machine and never declared, so on a fresh machine
+    # `pip install -e ".[dev]"` produced an environment where two of the five gates could
+    # not run at all — measured 2026-10-21: "No module named ruff", vulture exit=1.
+    "ruff>=0.17",
+    "vulture>=2.16",
+]
+
+[project.scripts]
+cbb-stage1 = "cbb_stage1.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q"
+markers = [
+  "live: real-provider smoke tests (opt-in with CBB_LIVE=1)",
+]
+
+# ── ruff ──────────────────────────────────────────────────────────────────────
+# Only three rules are enabled, deliberately.
+#
+# The default rule set produced 465 findings, overwhelmingly formatting. Turning
+# that on in one go buries the real problems and trains everyone to ignore the
+# output. F401/F811/F841 are unambiguous code hygiene: an unused import, a
+# shadowed definition, an assigned-but-unused local. They found a genuine
+# duplicate import (F811 on check_supersede_chain) the moment they were run.
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["F401", "F811", "F841"]

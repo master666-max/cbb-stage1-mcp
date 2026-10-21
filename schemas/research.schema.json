@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cbb-box/2/research.schema.json",
+  "title": "Textual research aggregate",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["research_id", "book_id", "kind", "claim", "status", "evidence"],
+  "properties": {
+    "research_id": {"type": "string", "pattern": "^rs:[0-9a-f]{16,64}$"},
+    "book_id": {"type": "string", "minLength": 1},
+    "kind": {"enum": ["cue", "hypothesis", "conflict"]},
+    "claim": {"type": "string"},
+    "status": {"type": "string", "minLength": 1},
+    "evidence": {"type": "array", "items": {"type": "object"}},
+    "source_ids": {"type": "array", "items": {"type": "string"}},
+    "missing_premises": {"type": "array", "items": {"type": "string"}},
+    "confidence": {"type": ["number", "null"]},
+    "produced_by": {"type": "string"}
+  }
+}

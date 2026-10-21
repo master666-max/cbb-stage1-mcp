@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cbb-box/2/entity.schema.json",
+  "title": "Entity",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["entity_id", "book_id", "type", "canonical_name", "aliases", "tier", "first_unit", "last_unit", "status", "merged_into", "confidence", "produced_by"],
+  "properties": {
+    "entity_id": {"type": "string", "pattern": "^e:[a-z0-9_-]+:[a-z_]+:.+$"},
+    "book_id": {"type": "string", "pattern": "^[a-z0-9_-]+$"},
+    "type": {"type": "string", "minLength": 1},
+    "canonical_name": {"type": "string", "minLength": 1},
+    "aliases": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "tier": {"enum": ["canonical", "major", "minor"]},
+    "name_history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "from_unit", "reason"],
+        "properties": {
+          "name": {"type": "string"},
+          "from_unit": {"type": "string", "pattern": "^u:"},
+          "reason": {"type": "string"}
+        }
+      }
+    },
+    "first_unit": {"type": "string", "pattern": "^u:"},
+    "last_unit": {"type": "string", "pattern": "^u:"},
+    "status": {"enum": ["active", "merged", "inactive"]},
+    "merged_into": {"type": ["string", "null"], "pattern": "^e:"},
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "produced_by": {"type": "string"}
+  }
+}

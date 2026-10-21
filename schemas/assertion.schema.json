@@ -1,0 +1,349 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cbb-box/2/assertion.schema.json",
+  "title": "Assertion",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "assertion_id",
+    "book_id",
+    "predicate",
+    "library",
+    "roles",
+    "qualifiers",
+    "evidence",
+    "confidence",
+    "status",
+    "derived_from",
+    "deps",
+    "produced_by"
+  ],
+  "properties": {
+    "assertion_id": {
+      "type": "string",
+      "pattern": "^a:[0-9a-f]{16,64}$"
+    },
+    "book_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]+$"
+    },
+    "predicate": {
+      "type": "string",
+      "minLength": 1
+    },
+    "library": {
+      "enum": [
+        "实体",
+        "关系",
+        "事件",
+        "埋线",
+        "设定",
+        "时序"
+      ]
+    },
+    "roles": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^e:"
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "literal"
+            ],
+            "properties": {
+              "literal": {
+                "type": "string"
+              },
+              "datatype": {
+                "enum": [
+                  "string",
+                  "number",
+                  "time",
+                  "boolean"
+                ]
+              }
+            }
+          },
+          {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "pattern": "^e:"
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "literal"
+                  ],
+                  "properties": {
+                    "literal": {
+                      "type": "string"
+                    },
+                    "datatype": {
+                      "enum": [
+                        "string",
+                        "number",
+                        "time",
+                        "boolean"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "qualifiers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "negated",
+        "modality",
+        "time",
+        "location"
+      ],
+      "properties": {
+        "negated": {
+          "type": "boolean"
+        },
+        "modality": {
+          "enum": [
+            "asserted",
+            "inferred",
+            "hypothetical",
+            "quoted"
+          ]
+        },
+        "time": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "location": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^e:"
+        }
+      }
+    },
+    "claim_layer": {
+      "enum": [
+        "fact",
+        "statement",
+        "inferred"
+      ]
+    },
+    "speaker": {
+      "$ref": "#/$defs/speaker"
+    },
+    "confidence_method": {
+      "enum": [
+        "engine_self",
+        "evidence_span",
+        "uqlm_whitebox",
+        "uqlm_blackbox",
+        "semantic_entropy",
+        "uq_heads",
+        "claim_qa",
+        "human",
+        "calibrated"
+      ]
+    },
+    "confidence_scope": {
+      "enum": [
+        "assertion",
+        "claim"
+      ]
+    },
+    "verification": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": true,
+      "required": [
+        "level",
+        "verdict"
+      ],
+      "properties": {
+        "level": {
+          "enum": [
+            "canonical",
+            "major",
+            "minor",
+            "none"
+          ]
+        },
+        "verdict": {
+          "enum": [
+            "support",
+            "against",
+            "unsure",
+            "none"
+          ]
+        }
+      }
+    },
+    "superseded_by": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^a:"
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "unit_id",
+          "start",
+          "end",
+          "quote",
+          "quote_sha256",
+          "occurrence"
+        ],
+        "properties": {
+          "unit_id": {
+            "type": "string",
+            "pattern": "^u:"
+          },
+          "start": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "end": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "quote": {
+            "type": "string",
+            "minLength": 1
+          },
+          "quote_sha256": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "occurrence": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "speaker": {
+            "$ref": "#/$defs/speaker"
+          },
+          "mode": {
+            "enum": [
+              "narration",
+              "dialogue",
+              "inner",
+              "memory",
+              "document",
+              "letter"
+            ]
+          }
+        }
+      }
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "status": {
+      "enum": [
+        "asserted",
+        "inferred",
+        "disputed",
+        "retracted",
+        "superseded"
+      ]
+    },
+    "derived_from": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "deps": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "produced_by": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "engine",
+        "prompt_sha256"
+      ],
+      "properties": {
+        "run_id": {
+          "type": "string"
+        },
+        "engine": {
+          "type": "string"
+        },
+        "prompt_sha256": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      }
+    },
+    "record_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  },
+  "$defs": {
+    "speaker": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "entity",
+            "narrator"
+          ]
+        },
+        "entity_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^e:"
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}

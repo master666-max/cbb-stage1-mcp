@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cbb-box/2/narrative.schema.json",
+  "title": "Narrative segment",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["seg_id", "unit_id", "entity_id", "order", "type", "text", "anchor", "content_hash"],
+  "properties": {
+    "seg_id": {"type": "string", "pattern": "^n:[0-9a-f]{16,64}$"},
+    "unit_id": {"type": "string", "pattern": "^u:"},
+    "entity_id": {"type": ["string", "null"], "pattern": "^e:"},
+    "order": {"type": "integer", "minimum": 1},
+    "type": {"enum": ["paragraph", "quote", "list", "table", "code", "media"]},
+    "text": {"type": "string", "minLength": 1},
+    "anchor": {"type": "string", "pattern": "^c:"},
+    "content_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  }
+}

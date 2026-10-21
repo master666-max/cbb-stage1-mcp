@@ -1,0 +1,20 @@
+Metadata-Version: 2.4
+Name: cbb-stage1
+Version: 0.1.0
+Summary: CBB stage-1 extraction pipeline (v6.1 / box v2.2)
+Requires-Python: >=3.12
+License-File: LICENSE
+Requires-Dist: pydantic>=2.7
+Requires-Dist: httpx>=0.27
+Requires-Dist: ebooklib>=0.18
+Requires-Dist: beautifulsoup4>=4.12
+Requires-Dist: rapidfuzz>=3.9
+Requires-Dist: jieba>=0.42
+Requires-Dist: PyYAML>=6.0
+Requires-Dist: jsonschema>=4.22
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.23; extra == "dev"
+Requires-Dist: ruff>=0.17; extra == "dev"
+Requires-Dist: vulture>=2.16; extra == "dev"
+Dynamic: license-file

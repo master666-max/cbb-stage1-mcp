@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>抽取段治理控制台（人裁入口）</title>
+<style>
+  body{font-family:system-ui,"Microsoft YaHei",sans-serif;background:#141821;color:#d8dee9;margin:0}
+  h1{font-size:18px;padding:12px 16px;margin:0;background:#1b2230;border-bottom:1px solid #2a3447}
+  h1 .mut{font-weight:normal}
+  nav{display:flex;gap:4px;padding:8px 16px;background:#1b2230;flex-wrap:wrap;align-items:center}
+  nav button{background:#2a3447;color:#d8dee9;border:0;padding:8px 14px;border-radius:6px;cursor:pointer;font-size:14px}
+  nav button.on{background:#4c6ef5;color:#fff}
+  main{padding:16px;max-width:1180px;margin:0 auto}
+  .bar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+  input,select,textarea{background:#1b2230;color:#d8dee9;border:1px solid #2a3447;padding:8px;border-radius:6px;font-size:14px;font-family:inherit}
+  input{flex:1;min-width:180px}
+  textarea{width:100%;min-height:52px;resize:vertical}
+  button.go{background:#4c6ef5;color:#fff;border:0;padding:8px 18px;border-radius:6px;cursor:pointer;font-size:14px}
+  button.decide{background:#2f9e44;color:#fff;border:0;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:13px;margin:2px}
+  button.decide.alt{background:#5c7cfa}
+  button.decide.warn{background:#e8590c}
+  .card{background:#1b2230;border:1px solid #2a3447;border-radius:8px;padding:12px;margin:8px 0}
+  .mut{color:#8b949e;font-size:12px}
+  .ok{color:#51cf66}.bad{color:#ff6b6b}.warn{color:#f0b72f}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+  .stat{background:#1b2230;border:1px solid #2a3447;border-radius:8px;padding:10px}
+  .stat b{display:block;font-size:22px;font-weight:600}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  td,th{border-bottom:1px solid #2a3447;padding:6px;text-align:left;vertical-align:top}
+  th{color:#8b949e;font-weight:500}
+  pre{white-space:pre-wrap;word-break:break-all;font-size:12px;background:#0d1117;padding:8px;border-radius:6px;margin:4px 0}
+  .quote{border-left:3px solid #4c6ef5;padding:4px 10px;margin:6px 0;background:#0d1117;border-radius:0 6px 6px 0}
+  .tabs2{display:flex;gap:6px;margin:10px 0 4px}
+  .tabs2 button{background:#0d1117;color:#8b949e;border:1px solid #2a3447;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:13px}
+  .tabs2 button.on{background:#4c6ef5;color:#fff;border-color:#4c6ef5}
+  .banner{background:#2b2416;border:1px solid #f0b72f;border-radius:8px;padding:10px;margin:8px 0;font-size:13px}
+  .banner.err{background:#2b1616;border-color:#ff6b6b}
+  .empty{color:#8b949e;font-style:italic;padding:10px 0}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  code{background:#0d1117;padding:1px 5px;border-radius:4px;font-size:12px}
+</style>
+</head>
+<body>
+<h1>⚖️ 抽取段治理控制台 <span class="mut">人裁入口 · 读面读箱 · 写面只走 MCP 工具</span></h1>
+<nav id="tabs"></nav>
+<main id="main"><p class="mut">载入中…</p></main>
+<script>
+const TABS = [
+  {id:"overview", label:"总览"},
+  {id:"pending",  label:"待裁"},
+  {id:"query",   label:"查询"},
+  {id:"infer",   label:"推断层"},
+  {id:"asserts", label:"断言"},
+];
+let tab = "overview";
+let pendingCache = null;
+
+const $ = (s, r) => (r || document).querySelector(s);
+const esc = s => String(s===undefined||s===null?"":s).replace(/[&<>"]/g, c => (
+  {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+async function api(path, opts){
+  const r = await fetch(path, opts);
+  const t = await r.text();
+  try { return JSON.parse(t); }
+  catch(e){ return {error:"非 JSON 响应", raw:t.slice(0,300)}; }
+}
+function post(path, body){
+  return api(path, {method:"POST", headers:{"Content-Type":"application/json"},
+                     body: JSON.stringify(body)});
+}
+
+function banner(msg, cls){
+  return `<div class="banner ${cls||""}">${msg}</div>`;
+}
+function stat(label, value, cls){
+  return `<div class="stat"><b class="${cls||""}">${value}</b><span class="mut">${label}</span></div>`;
+}
+function table(head, rows){
+  if(!rows.length) return `<p class="empty">（本轮为空）</p>`;
+  return `<table><thead><tr>${head.map(h=>`<th>${h}</th>`).join("")}</tr></thead>
+    <tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+}
+function quoteBlock(ev){
+  if(!ev) return "";
+  return `<div class="quote"><code>${esc(ev.unit_id||"")} [${ev.start},${ev.end})</code><br>${esc(ev.quote||"")}</div>`;
+}
+
+/* ── 总览 ─────────────────────────────────────────────────────────────── */
+async function renderOverview(){
+  const [ov, cov] = await Promise.all([api("/api/overview"), api("/api/coverage")]);
+  const gaps = Object.entries(ov.capability_gaps||{});
+  const absent = (cov.cells||[]).filter(c=>c.status!=="present");
+  const present = (cov.cells||[]).filter(c=>c.status==="present");
+  const hardBad = Object.entries(ov.hard_gates||{}).filter(([k,v])=>v!=="pass");
+  return `
+  ${hardBad.length ? banner("硬门未全绿：" + hardBad.map(([k,v])=>`${k}=${v}`).join("，")) : ""}
+  <div class="grid">
+    ${stat("硬门", Object.keys(ov.hard_gates||{}).length + " 项")}
+    ${stat("未过的硬门", hardBad.length, hardBad.length?"bad":"ok")}
+    ${stat("能力缺口", gaps.length, gaps.length?"warn":"ok")}
+    ${stat("覆盖格", (cov.cells||[]).length + " 格")}
+    ${stat("absent 格", absent.length, absent.length?"warn":"ok")}
+    ${stat("断言样本", (ov.samples||{}).assertions ?? "—")}
+  </div>
+
+  <h3>能力缺口登记</h3>
+  ${gaps.length ? table(["项","状态","原因"], gaps.map(([k,v])=>[
+      `<code>${esc(k)}</code>`, `<span class="${v.status==="not_implemented"?"warn":"ok"}">${esc(v.status)}</span>`,
+      esc(v.reason||"")])) : `<p class="empty">（无登记缺口）</p>`}
+
+  <h3>覆盖矩阵（6 库 × 10 方面）</h3>
+  ${table(["库","方面","状态","数量","原因"], (cov.cells||[]).map(c=>[
+      esc(c.library), esc(c.aspect),
+      `<span class="${c.status==="present"?"ok":"warn"}">${esc(c.status)}</span>`,
+      c.count===undefined?"—":esc(c.count), esc(c.reason||"")]))}
+  ${(ov.work_table_problems||[]).length ? banner("工作台账问题：" + ov.work_table_problems.map(esc).join("；")) : ""}
+  `;
+}
+
+/* ── 待裁 ─────────────────────────────────────────────────────────────── */
+function proposalCard(p){
+  return `<div class="card">
+    <div class="row"><b>谓词提案</b> <code>${esc(p.predicate)}</code>
+      <span class="mut">${esc(p.proposal_id||"")} · 出现 ${esc(p.count)} 次 · 状态 ${esc(p.status)}</span></div>
+    <div class="mut">seen_in: ${esc((p.seen_in||[]).join(", "))}</div>
+    <pre>${esc(JSON.stringify(p.role_shape_examples||[], null, 1))}</pre>
+    <div class="row" style="margin-top:8px">
+      <select class="library" title="归到哪个库（提案本身不带库，必须人选）">
+        <option value="">— 归入哪个库（必选）—</option>
+        <option value="实体">实体</option>
+        <option value="关系">关系</option>
+        <option value="事件">事件</option>
+        <option value="埋线">埋线</option>
+        <option value="设定">设定</option>
+        <option value="时序">时序</option>
+      </select>
+      <input class="by" placeholder="谁裁的（必填）" value="${esc(p.decided_by||"")}">
+      <input class="reason" placeholder="理由（必填）">
+      <button class="decide" data-kind="predicate" data-id="${esc(p.proposal_id)}"
+        data-predicate="${esc(p.predicate)}">批准并注册</button>
+    </div>
+  </div>`;
+}
+function conflictCard(c){
+  const choices = ["left","right","merge","disputed","superseded"];
+  return `<div class="card">
+    <div class="row"><b>冲突</b> <code>${esc(c.conflict_id||"")}</code>
+      <span class="mut">${esc(c.kind||"")} · 状态 ${esc(c.status||"open")}</span></div>
+    <div class="mut">left=<code>${esc(c.left)}</code> right=<code>${esc(c.right)}</code></div>
+    <div>${esc(c.detail||"")}</div>
+    <div class="row" style="margin-top:8px">
+      <input class="by" placeholder="谁裁的（必填）">
+      <input class="reason" placeholder="理由（必填）">
+      ${choices.map(ch=>`<button class="decide alt" data-kind="conflict" data-id="${esc(c.conflict_id)}"
+          data-choice="${ch}">${ch}</button>`).join("")}
+    </div>
+  </div>`;
+}
+function quarantineCard(q){
+  return `<div class="card">
+    <div class="row"><b>隔离项</b> <code>${esc(q.item_id)}</code>
+      <span class="mut">${esc(q.kind)} · ${esc(q.reason)}</span></div>
+    <div>${esc(q.detail||"")}</div>
+    <div class="mut">来源 ${esc(q.source_run||"")}</div>
+    <div class="row" style="margin-top:8px">
+      <input class="by" placeholder="谁裁的（必填）">
+      <input class="reason" placeholder="理由（必填）">
+      <button class="decide warn" data-kind="quarantine" data-id="${esc(q.item_id)}" data-choice="keep">保留</button>
+      <button class="decide warn" data-kind="quarantine" data-id="${esc(q.item_id)}" data-choice="retain">留档</button>
+      <button class="decide warn" data-kind="quarantine" data-id="${esc(q.item_id)}" data-choice="drop">丢弃</button>
+    </div>
+  </div>`;
+}
+function supersedeCard(){
+  return `<div class="card">
+    <div class="row"><b>断言改判（supersede / retcon）</b>
+      <span class="mut">旧件保留，决策写 audit/decisions.jsonl</span></div>
+    <div class="row" style="margin-top:8px">
+      <input class="loser" placeholder="loser 断言 id" style="flex:1;min-width:200px">
+      <input class="winner" placeholder="winner 断言 id" style="flex:1;min-width:200px">
+      <input class="by" placeholder="谁裁的（必填）">
+      <input class="reason" placeholder="理由（必填）">
+      <button class="decide" data-kind="supersede">改判</button>
+    </div>
+  </div>`;
+}
+
+async function renderPending(){
+  const p = await api("/api/pending");
+  pendingCache = p;
+  const n = (p.proposals||[]).length + (p.conflicts||[]).length + (p.quarantine||[]).length;
+  return `
+  ${n ? banner("待裁 " + n + " 项。裁决落在 work（可写目录），箱是交付件 —— 裁完需重建箱。") : ""}
+  <h3>谓词提案（${(p.proposals||[]).length}）</h3>
+  ${(p.proposals||[]).map(proposalCard).join("") || `<p class="empty">（无）</p>`}
+  <h3>冲突（${(p.conflicts||[]).length}）</h3>
+  ${(p.conflicts||[]).map(conflictCard).join("") || `<p class="empty">（无）</p>`}
+  <h3>隔离项（${(p.quarantine||[]).length}）</h3>
+  ${(p.quarantine||[]).map(quarantineCard).join("") || `<p class="empty">（无）</p>`}
+  <h3>断言改判</h3>
+  ${supersedeCard()}
+  <div id="decide-out"></div>
+  `;
+}
+
+/* ── 查询 ─────────────────────────────────────────────────────────────── */
+let lastQuery = "";
+async function renderQuery(){
+  return `
+  <div class="bar">
+    <input id="q" placeholder="全文关键词" value="${esc(lastQuery)}">
+    <input id="q-predicate" placeholder="谓词（如 位于）" style="flex:0 1 180px">
+    <input id="q-entity" placeholder="实体 id" style="flex:0 1 180px">
+    <input id="q-unit" placeholder="单元 id" style="flex:0 1 180px">
+    <button class="go" id="q-go">查</button>
+  </div>
+  <div id="q-out"><p class="mut">输入条件后点「查」。</p></div>
+  `;
+}
+async function doQuery(){
+  const p = new URLSearchParams();
+  const add = (k,v)=>{ if(v) p.set(k,v); };
+  add("q", $("#q").value); add("predicate", $("#q-predicate").value);
+  add("entity", $("#q-entity").value); add("unit", $("#q-unit").value);
+  lastQuery = $("#q").value;
+  const r = await api("/api/query?" + p.toString());
+  if(r.error){ $("#q-out").innerHTML = banner(esc(r.error), "err"); return; }
+  $("#q-out").innerHTML = `<p class="mut">命中 ${r.total} 条</p>` +
+    (r.hits||[]).map(h=>`<div class="card">
+      <div class="row"><code>${esc(h.assertion_id)}</code> <b>${esc(h.predicate)}</b>
+        <span class="mut">${esc(h.library)} · ${esc(h.claim_layer)} · ${esc(h.status||"")}</span></div>
+      <pre>${esc(JSON.stringify(h.roles, null, 1))}</pre>
+      ${(h.evidence||[]).map(quoteBlock).join("")}
+      ${h.speaker ? `<div class="mut">speaker: ${esc(h.speaker.name||"")}</div>` : ""}
+    </div>`).join("");
+}
+
+/* ── 推断层 ───────────────────────────────────────────────────────────── */
+async function renderInfer(){
+  const r = await api("/api/inference");
+  return `<div class="grid">${Object.entries(r.tables||{}).map(([k,v])=>
+      stat(k, v.rows, v.empty?"warn":"ok")).join("")}</div>
+    <h3>逐表</h3>
+    ${table(["表","行数","空？","首行"], Object.entries(r.tables||{}).map(([k,v])=>[
+        `<code>${esc(k)}</code>`, v.rows, v.empty?"<span class='warn'>是</span>":"<span class='ok'>否</span>",
+        `<pre>${esc(JSON.stringify(v.sample, null, 1).slice(0,400))}</pre>`]))}`;
+}
+
+/* ── 断言 ─────────────────────────────────────────────────────────────── */
+async function renderAsserts(){
+  const r = await api("/api/assertions?limit=200");
+  return `<p class="mut">共 ${r.total} 条${r.empty?"（本轮为空）":""}</p>` +
+    (r.rows||[]).map(h=>`<div class="card">
+      <div class="row"><code>${esc(h.assertion_id)}</code> <b>${esc(h.predicate)}</b>
+        <span class="mut">${esc(h.library)} · ${esc(h.claim_layer)} · ${esc(h.status||"")}
+        · 置信 ${esc(h.confidence)}</span></div>
+      <pre>${esc(JSON.stringify(h.roles, null, 1))}</pre>
+      ${(h.evidence||[]).map(quoteBlock).join("")}
+      <pre>${esc(JSON.stringify(h.verification||{}, null, 1))}</pre>
+    </div>`).join("");
+}
+
+/* ── 裁决动作 ─────────────────────────────────────────────────────────── */
+async function sendDecision(btn){
+  const card = btn.closest(".card");
+  const by = $(".by", card).value.trim();
+  const reason = $(".reason", card).value.trim();
+  if(!by){ alert("必须填「谁裁的」——I4 规定人审身份不能空。"); return; }
+  if(!reason){ alert("必须填理由。"); return; }
+  const kind = btn.dataset.kind;
+  let path, body;
+  if(kind === "predicate"){
+    const library = $(".library", card).value.trim();
+    if(!library){ alert("必须选「归入哪个库」——提案本身不带库，工具会拒。"); return; }
+    path = "/api/decide/predicate";
+    body = {predicate: btn.dataset.predicate, by, reason, library};
+  } else if(kind === "conflict"){
+    path = "/api/decide/conflict";
+    body = {conflict_id: btn.dataset.id, choice: btn.dataset.choice, by, reason};
+  } else if(kind === "quarantine"){
+    path = "/api/decide/quarantine";
+    body = {item_id: btn.dataset.id, decision: btn.dataset.choice, by, reason};
+  } else if(kind === "supersede"){
+    path = "/api/decide/supersede";
+    body = {loser: $(".loser", card).value.trim(), winner: $(".winner", card).value.trim(), by, reason};
+  }
+  btn.disabled = true;
+  const r = await post(path, body);
+  const out = $("#decide-out");
+  if(r.error){
+    out.innerHTML = banner("裁决被拒：" + esc(r.error), "err");
+  }else{
+    const ok = r.result && r.result.ok !== false;
+    out.innerHTML = banner(
+      (ok?"裁决已发出":"裁决未通过") + " → " + esc((r.result&&r.result.data&&r.result.data.decision_id) || "（无 decision_id）")
+      + (r.needs_rebuild ? "<br><b>已裁决，需重建箱</b>（箱是交付件，裁决落在 work）。" : ""),
+      ok ? "" : "err");
+    if(ok) setTimeout(()=>{ tab="pending"; render(); }, 400);
+  }
+  btn.disabled = false;
+}
+
+/* ── 主循环 ───────────────────────────────────────────────────────────── */
+const RENDER = {overview:renderOverview, pending:renderPending, query:renderQuery,
+                infer:renderInfer, asserts:renderAsserts};
+
+async function render(){
+  $("#tabs").innerHTML = TABS.map(t=>
+    `<button data-tab="${t.id}" class="${tab===t.id?"on":""}">${t.label}</button>`).join("");
+  const main = $("#main");
+  main.innerHTML = '<p class="mut">载入中…</p>';
+  try {
+    main.innerHTML = await RENDER[tab]();
+  } catch(e){
+    main.innerHTML = banner("载入失败：" + esc(e.message), "err");
+  }
+  if(tab === "query"){ const b=$("#q-go"); if(b) b.onclick = doQuery; }
+  document.querySelectorAll(".decide").forEach(b=> b.onclick = ()=>sendDecision(b));
+}
+$("#tabs").onclick = e => { const b = e.target.closest("button[data-tab]"); if(b){ tab=b.dataset.tab; render(); } };
+render();
+</script>
+</body>
+</html>

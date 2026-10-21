@@ -1,0 +1,830 @@
+items:
+- id: A1
+  expected: PASS
+  owner: W1
+  mechanism: 两段式：先词典/别名，再带词典抽
+  target: '`设计/00` §4.2–4.4、`设计/01` lexicon'
+  status_text: 已接线：engine 预扫 + 词典注入 pipeline
+  evidence:
+  - test:tests/unit/test_prescan_wiring.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: A2
+  expected: PASS
+  owner: W1
+  mechanism: 章级九类记录 schema（人物/关系/地点/空间/物品/组织/事件/概念/世界声明）
+  target: '`设计/01` assertions/events/claims 映射；`02` adapter'
+  status_text: 设计已吸收
+  evidence:
+  - test:tests/unit/test_orchestrator.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: A3
+  expected: PASS
+  owner: W1
+  mechanism: Pydantic schema + `minItems` 强制非空
+  target: '`设计/02` §4.1、§6'
+  status_text: 设计已吸收
+  evidence:
+  - test:tests/unit/test_orchestrator.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: A4
+  expected: PASS
+  owner: W1
+  mechanism: 反编造 + 别名禁令（泛称/亲属/官职不作别名）
+  target: '`设计/02` §5、`01` §5.16'
+  status_text: 设计已吸收
+  evidence:
+  - test:tests/unit/test_orchestrator.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: A5
+  expected: PASS
+  owner: W1
+  mechanism: 章级批处理 + 暂停/恢复/重试
+  target: '`设计/04` 执行循环、`02` §6'
+  status_text: 设计已吸收
+  evidence:
+  - test:tests/unit/test_orchestrator.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: A6
+  expected: PASS
+  owner: W1
+  mechanism: AliasResolver：Union-Find + 泛称/亲属/官职三层安全表 + 规范名打分
+  target: '`设计/00` §4.8、`01` entities/merges'
+  status_text: 已接线：AliasResolver 由 engine 预扫调用
+  evidence:
+  - test:tests/unit/test_prescan_wiring.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: A7
+  expected: PASS
+  owner: W1
+  mechanism: 10 类语义清洗 + 6 类冲突检测
+  target: '`设计/03` QC、`01` conflicts（部分）'
+  status_text: 已接线：10 类清洗 + 6 类冲突输入检查（pipeline 调用）
+  evidence:
+  - test:tests/unit/test_cleaning_rules.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: A8
+  expected: PASS
+  owner: W1
+  mechanism: LPMM 两段式 NER→RDF
+  target: '`设计/02` §4.2、§10'
+  status_text: 设计已吸收
+  evidence:
+  - test:tests/unit/test_lpmm_adapter.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: A9
+  expected: PASS
+  owner: W1
+  mechanism: 并发/重试/`json_repair`/段 hash 断点
+  target: '`设计/02` §6、`04` 任务/回执'
+  status_text: 设计已吸收
+  evidence:
+  - test:tests/unit/test_lpmm_adapter.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: A10
+  expected: PARTIAL
+  owner: W1
+  mechanism: 批次导入/删除/批次检查
+  target: '`设计/01` §7 增量、`02` §10'
+  status_text: 部分：只借"批次删除/对账"，不是事务回滚
+  evidence: []
+  gap: acceptance/gaps/A10.md
+- id: A11
+  expected: PASS
+  owner: W1
+  mechanism: chunk 先大后小、context 错再切
+  target: '`设计/02` §10、`00` §4.5'
+  status_text: 设计已吸收
+  evidence:
+  - test:tests/unit/test_orchestrator.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: A12
+  expected: PASS
+  owner: W1
+  mechanism: 语义去重：semhash / KNN 聚类 + 簇内 LM
+  target: '`设计/00` §4.12、`01` claims/enrich'
+  status_text: 已接线：semhash + KNN 候选 + 簇内 merger（无 LM 时显式 unavailable）
+  evidence:
+  - test:tests/unit/test_dedupe_knn.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: A13
+  expected: PASS
+  owner: W1
+  mechanism: 结构优先切块：章/节边界、500 字、尾段重叠、年份
+  target: '`设计/00` §4.1、`02` §10'
+  status_text: 设计已吸收
+  evidence:
+  - test:tests/unit/test_orchestrator.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: A14
+  expected: PASS
+  owner: W1
+  mechanism: 词典先行 + 扇出清洗 + LLM 批次归并（189 别名教训）
+  target: '`设计/00` §4.8'
+  status_text: 设计已吸收
+  evidence:
+  - test:tests/integration/test_resolve_assemble_claims.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: A15
+  expected: PARTIAL
+  owner: W1
+  mechanism: Book→Chunk→LLM→NER→Connections→JSON 管线
+  target: '`设计/02` 适配器参考'
+  status_text: 部分：仅作管线形状参考
+  evidence: []
+  gap: acceptance/gaps/A15.md
+- id: A16
+  expected: PARTIAL
+  owner: W1
+  mechanism: 章级 checkpoint + 内容 sha 幂等 + 共现边 + tier
+  target: '`设计/01` §5.14、`02` §6'
+  status_text: 部分：未全搬
+  evidence: []
+  gap: acceptance/gaps/A16.md
+- id: A17
+  expected: PASS
+  owner: W2
+  mechanism: '**Gleaning 续抽**（初抽后 continue prompt，最多 N 轮）'
+  target: '`设计/02` §10.1、`00` §4.5'
+  status_text: 已接线：engine gleaning 路径（max_gleanings）
+  evidence:
+  - test:tests/unit/test_engine.py
+  - test:tests/unit/test_box_writer.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: A18
+  expected: PASS
+  owner: W2
+  mechanism: 实体描述聚合/摘要合成
+  target: '`设计/00` §4.12、`01` derived/entity_cards'
+  status_text: 已接线：MapReduce 描述合成 + observation 回落
+  evidence:
+  - test:tests/unit/test_description_synthesis.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: A19
+  expected: PASS
+  owner: W2
+  mechanism: 社区检测 + community report（roll-up/drill-down）
+  target: '`设计/01` §5.21（derived 可选）'
+  status_text: 已接线：连通分量 + volume roll-up 层级社区
+  evidence:
+  - test:tests/unit/test_community_raptor.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: A20
+  expected: PASS
+  owner: W2
+  mechanism: 增量更新工作流（title delta、实体/关系/社区/报告更新）
+  target: '`设计/01` §7、`02` §10'
+  status_text: 已接线：增量规划 + 复用 engine 产物
+  evidence:
+  - test:tests/integration/test_incremental_equivalence.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: A21
+  expected: PASS
+  owner: W2
+  mechanism: LightRAG gleaning 参数 + 初抽/续抽共用处理器
+  target: '`设计/02` §10.1'
+  status_text: 设计已吸收
+  evidence:
+  - test:tests/unit/test_engine.py
+  - test:tests/unit/test_box_writer.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: A22
+  expected: PASS
+  owner: W2
+  mechanism: 文档状态机 PENDING→PARSING→ANALYZING→PROCESSING→DONE/FAILED
+  target: '`设计/04` work 状态、`02` §10.4'
+  status_text: 设计已吸收
+  evidence:
+  - test:tests/unit/test_engine.py
+  - test:tests/unit/test_box_writer.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: A23
+  expected: PASS
+  owner: W2
+  mechanism: 四种 chunk 策略（fixed/recursive/semantic/标题感知）
+  target: '`设计/00` §4.1'
+  status_text: 已接线：structural/fixed/title/semantic 四策略
+  evidence:
+  - test:tests/unit/test_chunk_strategies.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: A24
+  expected: PASS
+  owner: W2
+  mechanism: 描述片段精确去重 + map-reduce 描述合成
+  target: '`设计/00` §4.12'
+  status_text: 已接线：观察去重 + MapReduce 合成
+  evidence:
+  - test:tests/unit/test_description_synthesis.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: A25
+  expected: PASS
+  owner: W2
+  mechanism: RAPTOR 递归 embedding→聚类→摘要树
+  target: '`设计/01` §5.14、`00` §4.12'
+  status_text: 已接线：递归聚类树（embedding/structural）
+  evidence:
+  - test:tests/unit/test_community_raptor.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: A26
+  expected: PASS
+  owner: W2
+  mechanism: OpenIE 两段式（先 NER 再带实体抽三元组）
+  target: '`设计/02` §4.2'
+  status_text: 已接线：openie 模式经 factory 可达
+  evidence:
+  - test:tests/unit/test_lpmm_adapter.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: A27
+  expected: PASS
+  owner: W2
+  mechanism: 逐字证据字段（quote + span + 可审计片段）
+  target: '`设计/01` evidence、`02` §4.7'
+  status_text: 设计已吸收；V5 anchor-drop 已有
+  evidence:
+  - test:tests/unit/test_engine.py
+  - test:tests/unit/test_box_writer.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: B1
+  expected: PARTIAL
+  owner: W4
+  mechanism: CoVe：草稿→验证问题→**独立回答**→修订
+  target: '`设计/02` §5.3（可选）、`04` Verifier'
+  status_text: 部分：只吸收"独立上下文"，四步闭环未实现
+  evidence: []
+  gap: acceptance/gaps/B1.md
+- id: B2
+  expected: PASS
+  owner: W4
+  mechanism: 语义熵（意义空间熵，多次采样）
+  target: '`设计/01` §5.15 confidence_method'
+  status_text: 已接线：confidence.semantic_entropy；无 LLM=unavailable
+  evidence:
+  - test:tests/unit/test_confidence_methods.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: B3
+  expected: PASS
+  owner: W4
+  mechanism: SEPs（从隐状态近似语义熵，5–10× 降本，需白盒）
+  target: '`设计/01` §5.15'
+  status_text: 已接线：confidence.sep；无白盒=unavailable
+  evidence:
+  - test:tests/unit/test_confidence_methods.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: B4
+  expected: PASS
+  owner: W4
+  mechanism: UQLM：黑盒/白盒/裁判三类 0–1 置信分
+  target: '`设计/01` §5.15'
+  status_text: 已接线：confidence.uqlm；无信号=unavailable
+  evidence:
+  - test:tests/unit/test_confidence_methods.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: B5
+  expected: PASS
+  owner: W4
+  mechanism: UQ Heads：claim 级不确定性 + attention/logits 辅助头
+  target: '`设计/01` §5.15 `confidence_scope`'
+  status_text: 已接线：UQ Head 训练/加载/推理；生产权重由部署提供
+  evidence:
+  - test:tests/unit/test_uq_heads_training.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: B6
+  expected: PASS
+  owner: W4
+  mechanism: AVeriTeC：问题-答案对 + **证据充分性检查** + 四值 verdict
+  target: '`设计/01` §5.19 claims'
+  status_text: 已接线：claims.qa/verdicts 四值
+  evidence:
+  - test:tests/unit/test_claims.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: B7
+  expected: PASS
+  owner: W4
+  mechanism: AFEV：复杂断言迭代原子分解→逐条检索→重排→验证→聚合
+  target: '`设计/01` §5.19 `atomic_facts`'
+  status_text: 已接线：reasoning.atomic；无 LLM=degenerate
+  evidence:
+  - test:tests/unit/test_reasoning.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: B8
+  expected: PASS
+  owner: W4
+  mechanism: Abductive RAG：证据不足检测→生成缺失前提→一致性/合理性双校验
+  target: '`设计/01` §5.20 hypotheses'
+  status_text: 已接线：reasoning.abduction（无 LLM 只出 candidate）
+  evidence:
+  - test:tests/unit/test_reasoning.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: B9
+  expected: PASS
+  owner: W4
+  mechanism: VeGraph：断言→图三元组→**实体消歧**→子断言验证
+  target: '`设计/01` §5.19/§5.16（QA 先解析实体）'
+  status_text: 已接线：reasoning.vegraph；无 LLM=degenerate
+  evidence:
+  - test:tests/unit/test_reasoning.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: B10
+  expected: PASS
+  owner: W4
+  mechanism: 临床自验证：输出可审计文本片段供人工复核
+  target: '`设计/01` evidence、`03` 人工抽样'
+  status_text: 设计已吸收
+  evidence:
+  - test:tests/unit/test_engine.py
+  - test:tests/unit/test_claims.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: B11
+  expected: PARTIAL
+  owner: W4
+  mechanism: 独立标注/第三人证据充分性检查（多标注者不复用同一 claim）
+  target: '`设计/04` Verifier 独立上下文、`03` 抽样'
+  status_text: 部分：借流程，不借人工成本
+  evidence: []
+  gap: acceptance/gaps/B11.md
+- id: B12
+  expected: PARTIAL
+  owner: W4
+  mechanism: 语义熵/SEP 用于"拒绝回答"而非只打分
+  target: '`设计/01` `insufficient_evidence`/abstain'
+  status_text: 部分：措辞进设计，阈值未校准
+  evidence: []
+  gap: acceptance/gaps/B12.md
+- id: C1
+  expected: PASS
+  owner: Lead
+  mechanism: 主 agent / 子代理 / 工具三层分工
+  target: '`设计/04` §1'
+  status_text: 已接线：五角色运行时 Task/Receipt/Verdict
+  evidence:
+  - test:tests/unit/test_roles_runtime.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: C2
+  expected: PASS
+  owner: Lead
+  mechanism: 文件交接 + 回执（≤500 token）
+  target: '`设计/04` §4；`schemas/exec/receipt`'
+  status_text: 设计已吸收；示例已写
+  evidence:
+  - test:tests/unit/test_roles.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: C3
+  expected: PASS
+  owner: Lead
+  mechanism: Verifier 独立上下文（不知道抽取过程）
+  target: '`设计/04` §8'
+  status_text: 已接线：Verifier 输入含原文+span；无 LLM=unsure
+  evidence:
+  - test:tests/unit/test_roles_runtime.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: C4
+  expected: PASS
+  owner: Lead
+  mechanism: Extractor/Verifier/Resolver/Arbiter/Abducer 五角色
+  target: '`设计/04` §5'
+  status_text: 已接线：Extractor/Verifier/Resolver/Arbiter/Abducer 运行时
+  evidence:
+  - test:tests/unit/test_roles_runtime.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: C5
+  expected: PARTIAL
+  owner: Lead
+  mechanism: Summarizer 树（RAPTOR 式层级）
+  target: '`设计/04` §6、`01` §5.14'
+  status_text: 部分：DSH 深度 1，改主 agent 分层代派
+  evidence: []
+  gap: acceptance/gaps/C5.md
+- id: C6
+  expected: PASS
+  owner: Lead
+  mechanism: 纯算法（时序/伏笔状态机）不做成 agent
+  target: '`设计/04` §1、`02` §10'
+  status_text: 设计已吸收
+  evidence:
+  - test:tests/unit/test_temporal.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: C7
+  expected: PASS
+  owner: Lead
+  mechanism: 状态目录可重建、主 agent 不装原文
+  target: '`设计/04` §3 work/'
+  status_text: 设计已吸收
+  evidence:
+  - test:tests/unit/test_orchestrator.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: C8
+  expected: PASS
+  owner: Lead
+  mechanism: 并发上限/批次排队
+  target: '`设计/04` §9'
+  status_text: 已接线：ThreadPoolExecutor 并发 + 主线程顺序落盘
+  evidence:
+  - test:tests/integration/test_pipeline_concurrency.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: C9
+  expected: PASS
+  owner: Lead
+  mechanism: 单写者 + 原子写 + 每卷一次快照
+  target: '`设计/04` §7'
+  status_text: 设计已吸收；自研约束
+  evidence:
+  - test:tests/unit/test_box_writer.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: C10
+  expected: PASS
+  owner: Lead
+  mechanism: 原文按不可信输入处理（防注入）
+  target: '`设计/04` §10'
+  status_text: 已接线：security.scan + wrap_untrusted 进 prompt
+  evidence:
+  - test:tests/integration/test_nli_and_security.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: D1
+  expected: PASS
+  owner: W3
+  mechanism: 叙述层：`claim_layer` + `speaker` + `mode`
+  target: '`设计/01` §5.16'
+  status_text: 设计已吸收；**本地库无 narrator/speaker 论文，标设计**
+  evidence:
+  - test:tests/unit/test_assemble.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: D2
+  expected: PASS
+  owner: W3
+  mechanism: 不可靠叙述者旁白降级为陈述层
+  target: '`设计/01` §5.16、units `narrator_reliability`'
+  status_text: 已接线：assemble narrator_reliability 降级
+  evidence:
+  - test:tests/unit/test_assemble.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: D3
+  expected: PARTIAL
+  owner: W3
+  mechanism: 置信传播：产生→聚合→关系强度→渲染
+  target: '`设计/01` §5.15'
+  status_text: 部分：规则写入，实现无
+  evidence: []
+  gap: acceptance/gaps/D3.md
+- id: D4
+  expected: PASS
+  owner: W3
+  mechanism: 分级验证矩阵 + 验证模型与抽取模型异档
+  target: '`设计/01` §5.15'
+  status_text: 设计已吸收；`model_decoupled=false` 可记录
+  evidence:
+  - test:tests/unit/test_conflicts.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: D5
+  expected: PARTIAL
+  owner: W3
+  mechanism: 词典演化：新实体→委员会→按实体出场集重扫
+  target: '`设计/01` §7'
+  status_text: 部分：只写"增量闭环"，无协议细节
+  evidence: []
+  gap: acceptance/gaps/D5.md
+- id: D6
+  expected: PASS
+  owner: W3
+  mechanism: O(新章) 增量：只抽新章、时序局部松弛、cue 只查本章
+  target: '`设计/01` §7、`02` §10.4'
+  status_text: 已接线：O(new chapter) 增量规划 + 复用
+  evidence:
+  - test:tests/integration/test_incremental_equivalence.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: D7
+  expected: PASS
+  owner: W4
+  mechanism: cue 状态机（候选→激活→悬置→回收/证伪/未解）
+  target: '`设计/01` §5.18'
+  status_text: 已接线：cues.state 状态机
+  evidence:
+  - test:tests/unit/test_cues.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: D8
+  expected: PASS
+  owner: W4
+  mechanism: '**Trigger**：Foreshadow-Trigger-Payoff；提前回收检测'
+  target: '`设计/01` §5.9、§5.18'
+  status_text: 设计已吸收；v2.2 新增
+  evidence:
+  - test:tests/unit/test_temporal.py
+  - test:tests/unit/test_cues.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: D9
+  expected: PASS
+  owner: W4
+  mechanism: 全局审计：属性/关系/时序三类矛盾 + `superseded` 版本化（retcon）
+  target: '`设计/01` §5.17'
+  status_text: 已接线：validate.conflicts 三类 + supersede
+  evidence:
+  - test:tests/unit/test_temporal.py
+  - test:tests/unit/test_cues.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: D10
+  expected: PASS
+  owner: W4
+  mechanism: 时间轴：`time_expr` + `story_time` 区间 + 部分序
+  target: '`设计/01` §5.7/§5.8'
+  status_text: 已接线：temporal.extract 显式时间表达
+  evidence:
+  - test:tests/unit/test_temporal_extract.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: D11
+  expected: PASS
+  owner: W4
+  mechanism: 时序 `nli_pairwise` 验证
+  target: '`设计/01` §5.8 `verify`'
+  status_text: 已接线：NLI client 注入（disabled=unknown，不判过）
+  evidence:
+  - test:tests/integration/test_nli_and_security.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: D12
+  expected: PASS
+  owner: W4
+  mechanism: clue 一等实体（伏笔载体）
+  target: '`设计/01` §5.4/§5.9'
+  status_text: 设计已吸收；v2.1/v2.2
+  evidence:
+  - test:tests/unit/test_temporal_extract.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: D13
+  expected: PASS
+  owner: W4
+  mechanism: RAPTOR 摘要树用于"全局视野"
+  target: '`设计/01` §5.14'
+  status_text: 已接线：RAPTOR 摘要按设计仅进入 derived 层
+  evidence:
+  - test:tests/unit/test_derive.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: D14
+  expected: PARTIAL
+  owner: W4
+  mechanism: 100-Endings 张力/预测
+  target: 未进箱
+  status_text: '**降级**：论文只验证短篇，长篇未验证；只可作按章辅助'
+  evidence:
+  - test:tests/unit/test_forecasts.py
+  gap: acceptance/gaps/D14.md
+- id: D15
+  expected: PARTIAL
+  owner: W4
+  mechanism: 动机链/情绪曲线/主题/风格/预测
+  target: '`设计/01` §5.20 `derived/inference/`'
+  status_text: '**未实现/仅派生**；动机只作编辑推荐'
+  evidence: []
+  gap: acceptance/gaps/D15.md
+- id: E1
+  expected: PASS
+  owner: Lead
+  mechanism: 逐字证据门（quote/span/locator/occurrence）
+  target: '`设计/01` I1、`02` §4.7'
+  status_text: 已接线：evidence anchor 门
+  evidence:
+  - test:tests/unit/test_box_writer.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: E2
+  expected: PASS
+  owner: Lead
+  mechanism: 候选契约（record_type/evidence/library/inferred）
+  target: '`设计/01` §5.6、`02` `EngineOutput`'
+  status_text: 设计已吸收
+  evidence:
+  - test:tests/unit/test_box_writer.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: E3
+  expected: PASS
+  owner: Lead
+  mechanism: 可撤销合并日志（split 一等公民）
+  target: '`设计/01` §5.5 merges'
+  status_text: 设计已吸收
+  evidence:
+  - test:tests/unit/test_writer_consumes_work_tables.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: E4
+  expected: PASS
+  owner: Lead
+  mechanism: 派工卡 + 卡 sha（证明候选拿哪张卡抽）
+  target: '`设计/02` Card v2、`04` 回执'
+  status_text: 设计已吸收
+  evidence:
+  - test:tests/unit/test_box_writer.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: E5
+  expected: PARTIAL
+  owner: Lead
+  mechanism: 判卷/植株/票数晋升
+  target: '`设计/03` QC 抽样/校准'
+  status_text: 部分：降为 QC，不做晋升门
+  evidence: []
+  gap: acceptance/gaps/E5.md
+- id: E6
+  expected: PASS
+  owner: Lead
+  mechanism: 唯一写口 + 审计 actor + 箱构建
+  target: '`设计/01` 单写者、`04` §7'
+  status_text: 设计已吸收
+  evidence:
+  - test:tests/unit/test_roles.py
+  - test:tests/unit/test_box_writer.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: E7
+  expected: PARTIAL
+  owner: Lead
+  mechanism: deps/dirty/replay 设计
+  target: '`设计/01` I13、§7'
+  status_text: 部分：deps 必须在抽取时生成（V5 教训）
+  evidence: []
+  gap: acceptance/gaps/E7.md
+- id: E8
+  expected: PARTIAL
+  owner: Lead
+  mechanism: pass 注册表/门禁/可关不可关
+  target: '`设计/00` 模块化 DAG、`03` 门'
+  status_text: 部分：27 把硬序列不搬，保留"每步有尺"
+  evidence: []
+  gap: acceptance/gaps/E8.md
+- id: E9
+  expected: PASS
+  owner: Lead
+  mechanism: 箱不可变、版本化、`parent`、内容哈希
+  target: '`设计/01` §1/§7/§11'
+  status_text: 设计已吸收
+  evidence:
+  - test:tests/unit/test_box_writer.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: E10
+  expected: PASS
+  owner: Lead
+  mechanism: 分层箱（sources/identity/knowledge/derived/audit/qc/index）
+  target: '`设计/01` §2'
+  status_text: 设计已吸收
+  evidence:
+  - test:tests/unit/test_box_writer.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: E11
+  expected: PASS
+  owner: Lead
+  mechanism: claims/QA、atomic_facts、hypotheses
+  target: '`设计/01` §5.19/§5.20'
+  status_text: 设计已吸收；组合为自研
+  evidence:
+  - test:tests/unit/test_claims.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: E12
+  expected: PASS
+  owner: Lead
+  mechanism: 三种 ID + 引用闭合 + `superseded_by`
+  target: '`设计/01` §4/§5.17'
+  status_text: 设计已吸收
+  evidence:
+  - test:tests/unit/test_box_writer.py
+  - test:tests/integration/test_wired_pipeline.py
+  gap: null
+- id: F1
+  expected: EXCLUDED
+  owner: Lead
+  mechanism: 小说 wiki 六大节（总览/角色/世界观/剧情/关系/伏笔）
+  target: ''
+  status_text: '**未进箱**；属段二 IA；当前只有页型/段骨架'
+  evidence: []
+  gap: null
+- id: F2
+  expected: EXCLUDED
+  owner: Lead
+  mechanism: 角色页 40–60%、卷级中间层、总览入口
+  target: ''
+  status_text: '**未吸收**；无站点 IA'
+  evidence: []
+  gap: null
+- id: F3
+  expected: EXCLUDED
+  owner: Lead
+  mechanism: 进阶六能力（冰山/动机/情绪/主题/预测/风格/粉丝理论）
+  target: ''
+  status_text: '**未实现**；仅 `derived/inference/` 占位'
+  evidence: []
+  gap: null
+- id: F4
+  expected: PARTIAL
+  owner: Lead
+  mechanism: 渐进式披露（读到第 N 章）
+  target: ''
+  status_text: 部分：箱有 `unit.order`，UI 未做
+  evidence: []
+  gap: acceptance/gaps/F4.md
+- id: F5
+  expected: EXCLUDED
+  owner: Lead
+  mechanism: UQ Heads "ETH" 标注
+  target: ''
+  status_text: 修正：ETH 是共同署名；此前"不成立"说错
+  evidence: []
+  gap: null
+- id: F6
+  expected: EXCLUDED
+  owner: Lead
+  mechanism: MDPI 2025 九模型基准
+  target: ''
+  status_text: '**查无实据**；不作为依据'
+  evidence: []
+  gap: null
+- id: F7
+  expected: EXCLUDED
+  owner: Lead
+  mechanism: 医疗时间轴 70–80% 召回/10–20% 偏移
+  target: ''
+  status_text: '**查无实据**；不作为依据'
+  evidence: []
+  gap: null
+- id: F8
+  expected: EXCLUDED
+  owner: Lead
+  mechanism: Ted Underwood 风格干扰
+  target: ''
+  status_text: '**不吸收**：原文讲历史语体/时代错置，非叙事可预测性'
+  evidence: []
+  gap: null
+- id: F9
+  expected: EXCLUDED
+  owner: Lead
+  mechanism: LightRAG 截断 `source_id`
+  target: ''
+  status_text: '**不抄**：与逐字 span 冲突'
+  evidence: []
+  gap: null
+- id: F10
+  expected: EXCLUDED
+  owner: Lead
+  mechanism: GraphRAG 大写去重 / 分隔符元组格式
+  target: ''
+  status_text: '**不抄**：中文误合、退回字符串解析'
+  evidence: []
+  gap: null
+- id: F11
+  expected: EXCLUDED
+  owner: Lead
+  mechanism: V5 27 把硬序列 / 先到先得角色形 / 18 格交付仪式
+  target: ''
+  status_text: '**不搬**：冷启动证明会造 invalid 箱'
+  evidence: []
+  gap: null

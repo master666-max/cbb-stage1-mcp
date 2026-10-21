@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cbb-box/2/motivation_chain.schema.json",
+  "title": "Motivation chain (derived/inference, §5.20)",
+  "description": "Behaviour -> direct motive -> need, for one character. The need is a CLOSED set (Maslow's five levels) because F01-MotiveBench measured 93% inter-annotator agreement on that taxonomy; free-text 'deep need' cannot be validated. §5.20 requires an evidence chain and calls this an editorial recommendation, not a fact.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["chain_id", "book_id", "character", "links", "method"],
+  "properties": {
+    "chain_id": {"type": "string", "pattern": "^mc:[0-9a-f]{16,64}$"},
+    "book_id": {"type": "string", "pattern": "^[a-z0-9_-]+$"},
+    "character": {"type": "string", "minLength": 1},
+    "links": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["behavior", "motive", "needs_level", "evidence"],
+        "properties": {
+          "behavior": {"type": "string", "minLength": 1},
+          "motive": {"type": "string", "minLength": 1},
+          "needs_level": {
+            "enum": [
+              "生理",
+              "安全",
+              "归属",
+              "尊重",
+              "自我实现"
+            ]
+          },
+          "evidence": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["unit_id", "quote"],
+              "properties": {
+                "unit_id": {"type": "string", "pattern": "^u:"},
+                "quote": {"type": "string", "minLength": 1},
+                "quote_sha256": {"type": ["string", "null"]}
+              }
+            }
+          }
+        }
+      }
+    },
+    "method": {"enum": ["maslow_guided"]},
+    "note": {"type": "string"},
+    "produced_by": {"type": "string"},
+    "created_at": {"type": ["string", "null"]}
+  }
+}

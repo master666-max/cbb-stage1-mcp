@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cbb-box/2/box.schema.json",
+  "title": "Box manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["spec", "spec_version", "box_id", "book", "created_at", "source", "profiles", "engine", "counts", "hashes", "status", "parent", "qc"],
+  "properties": {
+    "spec": {"const": "cbb-box/2"},
+    "spec_version": {"type": "string", "pattern": "^2\\.[0-9]+\\.[0-9]+$"},
+    "box_id": {"type": "string", "minLength": 3},
+    "book": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "language", "volumes"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z0-9_-]+$"},
+        "title": {"type": "string"},
+        "language": {"type": "string"},
+        "volumes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["no", "title", "units"],
+            "properties": {
+              "no": {"type": "integer", "minimum": 1},
+              "title": {"type": "string"},
+              "units": {"type": "integer", "minimum": 0}
+            }
+          }
+        },
+        "series_id": {"type": ["string", "null"], "pattern": "^[a-z0-9_-]+$"},
+        "volume_no": {"type": ["integer", "null"], "minimum": 1}
+      }
+    },
+    "created_at": {"type": "string", "format": "date-time"},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format", "files", "unit_count", "char_count"],
+      "properties": {
+        "format": {"enum": ["epub", "txt", "mixed"]},
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "sha256"],
+            "properties": {
+              "path": {"type": "string"},
+              "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+            }
+          }
+        },
+        "unit_count": {"type": "integer", "minimum": 0},
+        "char_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "profiles": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["genre_id", "genre_sha256", "predicates_sha256", "types_sha256"],
+      "properties": {
+        "genre_id": {"type": "string"},
+        "genre_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "predicates_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "types_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      }
+    },
+    "engine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["primary", "version", "model", "prompt_sha256"],
+      "properties": {
+        "primary": {"type": "string"},
+        "version": {"type": "string"},
+        "model": {"type": "string"},
+        "prompt_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      }
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["units", "mentions", "entities", "assertions", "events", "cues", "quarantined"],
+      "properties": {
+        "units": {"type": "integer", "minimum": 0},
+        "mentions": {"type": "integer", "minimum": 0},
+        "entities": {"type": "integer", "minimum": 0},
+        "assertions": {"type": "integer", "minimum": 0},
+        "statements": {"type": "integer", "minimum": 0},
+        "claims": {"type": "integer", "minimum": 0},
+        "citations": {"type": "integer", "minimum": 0},
+        "narratives": {"type": "integer", "minimum": 0},
+        "graph_edges": {"type": "integer", "minimum": 0},
+        "assets": {"type": "integer", "minimum": 0},
+        "events": {"type": "integer", "minimum": 0},
+        "cues": {"type": "integer", "minimum": 0},
+        "conflicts": {"type": "integer", "minimum": 0},
+        "superseded": {"type": "integer", "minimum": 0},
+        "quarantined": {"type": "integer", "minimum": 0}
+      }
+    },
+    "hashes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["files", "merkle_root"],
+      "properties": {
+        "files": {
+          "type": "object",
+          "additionalProperties": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+        },
+        "merkle_root": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      }
+    },
+    "status": {"enum": ["built", "partial", "failed", "quarantined"]},
+    "parent": {"type": ["string", "null"]},
+    "incremental": {
+      "type": ["object", "null"],
+      "additionalProperties": true,
+      "properties": {
+        "parent": {"type": ["string", "null"]},
+        "changed_units": {"type": "array", "items": {"type": "string"}},
+        "dirty_entities": {"type": "array", "items": {"type": "string"}},
+        "replay_base": {"type": ["string", "null"]}
+      }
+    },
+    "qc": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hard_gates", "soft_gates", "human_reviewed_units"],
+      "properties": {
+        "hard_gates": {"enum": ["pass", "fail"]},
+        "soft_gates": {"type": "object"},
+        "human_reviewed_units": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

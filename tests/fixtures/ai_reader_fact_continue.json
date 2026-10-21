@@ -1,0 +1,32 @@
+{
+  "chapter_id": 1,
+  "novel_id": "testbook",
+  "characters": [
+    {"name": "韩立", "new_aliases": [], "appearance": null, "abilities_gained": [], "locations_in_chapter": ["七玄门"]}
+  ],
+  "relationships": [],
+  "locations": [
+    {"name": "青牛镇", "type": "城镇", "parent": null, "peers": null, "description": "韩立家乡", "role": "setting"}
+  ],
+  "spatial_relationships": [],
+  "item_events": [],
+  "org_events": [],
+  "events": [
+    {
+      "summary": "韩立与三叔前往七玄门",
+      "type": "旅行",
+      "importance": "high",
+      "participants": ["韩立", "三叔"],
+      "location": "青牛镇"
+    },
+    {
+      "summary": "三叔叮嘱韩立莫要惹事",
+      "type": "社交",
+      "importance": "medium",
+      "participants": ["韩立", "三叔"],
+      "location": "七玄门"
+    }
+  ],
+  "new_concepts": [],
+  "world_declarations": []
+}

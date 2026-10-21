@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cbb-box/2/cue.schema.json",
+  "title": "Cue (foreshadowing)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["cue_id", "book_id", "kind", "subject", "setup", "reinforce", "payoff", "status", "expected", "confidence", "deps"],
+  "properties": {
+    "cue_id": {"type": "string", "pattern": "^cue:[0-9a-f]{16,64}$"},
+    "book_id": {"type": "string", "pattern": "^[a-z0-9_-]+$"},
+    "kind": {"enum": ["object", "line", "anomaly", "prophecy", "relationship"]},
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entity_id", "literal"],
+      "properties": {
+        "entity_id": {"type": ["string", "null"], "pattern": "^e:"},
+        "literal": {"type": ["string", "null"]}
+      }
+    },
+    "setup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit_id", "evidence"],
+      "properties": {
+        "unit_id": {"type": "string", "pattern": "^u:"},
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/ev"}
+        }
+      }
+    },
+    "reinforce": {"type": "array", "items": {"$ref": "#/$defs/ev"}},
+    "trigger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit_id", "event_id", "condition", "evidence"],
+      "properties": {
+        "unit_id": {"type": ["string", "null"], "pattern": "^u:"},
+        "event_id": {"type": ["string", "null"], "pattern": "^ev:"},
+        "condition": {"type": ["string", "null"]},
+        "evidence": {"type": "array", "items": {"$ref": "#/$defs/ev"}}
+      }
+    },
+    "payoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_id", "unit_id", "evidence"],
+      "properties": {
+        "event_id": {"type": ["string", "null"], "pattern": "^ev:"},
+        "unit_id": {"type": ["string", "null"], "pattern": "^u:"},
+        "evidence": {"type": "array", "items": {"$ref": "#/$defs/ev"}}
+      }
+    },
+    "status": {"enum": ["candidate", "active", "triggered", "dormant", "paid", "falsified", "unresolved"]},
+    "activated_at": {"type": ["string", "null"]},
+    "triggered_at": {"type": ["string", "null"]},
+    "dormant_since": {"type": ["string", "null"]},
+    "falsified_reason": {"type": ["string", "null"]},
+    "premature_payoff": {"type": "boolean"},
+    "expected": {"type": "string"},
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "confidence_method": {"type": ["string", "null"]},
+    "deps": {"type": "array", "items": {"type": "string"}}
+  },
+  "$defs": {
+    "ev": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit_id", "start", "end", "quote", "quote_sha256", "occurrence"],
+      "properties": {
+        "unit_id": {"type": "string", "pattern": "^u:"},
+        "start": {"type": "integer", "minimum": 0},
+        "end": {"type": "integer", "minimum": 0},
+        "quote": {"type": "string", "minLength": 1},
+        "quote_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "occurrence": {"type": "integer", "minimum": 1}
+      }
+    }
+  }
+}

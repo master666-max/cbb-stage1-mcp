@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cbb-box/2/graph-edge.schema.json",
+  "title": "Graph edge (projection-facing)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["edge_id", "book_id", "from", "to", "predicate", "assertion_id", "library", "strength", "evidence_count", "status"],
+  "properties": {
+    "edge_id": {"type": "string", "pattern": "^g:[0-9a-f]{16,64}$"},
+    "book_id": {"type": "string", "pattern": "^[a-z0-9_-]+$"},
+    "from": {"type": "string", "pattern": "^e:"},
+    "to": {"type": "string", "pattern": "^e:"},
+    "predicate": {"type": "string", "minLength": 1},
+    "assertion_id": {"type": "string", "pattern": "^a:"},
+    "library": {"enum": ["实体", "关系", "事件", "埋线", "设定", "时序"]},
+    "strength": {"type": "number", "minimum": 0, "maximum": 1},
+    "evidence_count": {"type": "integer", "minimum": 0},
+    "status": {"enum": ["asserted", "inferred", "disputed", "retracted", "superseded"]}
+  }
+}

@@ -1,0 +1,2 @@
+[console_scripts]
+cbb-stage1 = cbb_stage1.cli:main

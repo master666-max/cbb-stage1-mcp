@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cbb-box/2/claim.schema.json",
+  "title": "Claim (statement verification)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["claim_id", "book_id", "statement_assertion_id", "normalized_claim", "claim_type", "questions", "verdict", "verdict_rule", "confidence", "confidence_method", "confidence_scope", "verified_by", "status"],
+  "properties": {
+    "claim_id": {"type": "string", "pattern": "^cl:[0-9a-f]{16,64}$"},
+    "book_id": {"type": "string", "pattern": "^[a-z0-9_-]+$"},
+    "statement_assertion_id": {"type": "string", "pattern": "^a:"},
+    "normalized_claim": {"type": "string", "minLength": 1},
+    "claim_type": {"enum": ["attribute", "relation", "event", "setting"]},
+    "questions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["qid", "question", "answers", "stance"],
+        "properties": {
+          "qid": {"type": "string"},
+          "question": {"type": "string"},
+          "answers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["text", "unit_id", "start", "end", "quote", "quote_sha256", "source"],
+              "properties": {
+                "text": {"type": "string"},
+                "unit_id": {"type": "string", "pattern": "^u:"},
+                "start": {"type": "integer", "minimum": 0},
+                "end": {"type": "integer", "minimum": 0},
+                "quote": {"type": "string", "minLength": 1},
+                "quote_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+                "source": {"type": "string"}
+              }
+            }
+          },
+          "stance": {"enum": ["support", "refute", "irrelevant", "unanswerable"]}
+        }
+      }
+    },
+    "atomic_facts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["fact_id", "text", "verdict", "evidence"],
+        "properties": {
+          "fact_id": {"type": "string"},
+          "text": {"type": "string"},
+          "verdict": {"enum": ["true", "false", "unverifiable"]},
+          "evidence": {"type": "array"},
+          "rationale": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "verdict": {"enum": ["supported", "refuted", "conflicting", "insufficient_evidence"]},
+    "verdict_rule": {"type": "string"},
+    "justification": {"type": ["string", "null"]},
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "confidence_method": {"type": "string"},
+    "confidence_scope": {"const": "claim"},
+    "verified_by": {"type": "object"},
+    "status": {"enum": ["open", "verified", "rejected"]},
+    "created_at": {"type": ["string", "null"]}
+  }
+}

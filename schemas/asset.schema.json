@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cbb-box/2/asset.schema.json",
+  "title": "Asset reference",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["asset_id", "book_id", "path", "sha256", "media_type"],
+  "properties": {
+    "asset_id": {"type": "string", "pattern": "^as:[0-9a-f]{16,64}$"},
+    "book_id": {"type": "string", "pattern": "^[a-z0-9_-]+$"},
+    "path": {"type": "string", "minLength": 1},
+    "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "media_type": {"type": "string", "minLength": 1},
+    "source_unit_id": {"type": ["string", "null"], "pattern": "^u:"},
+    "alt": {"type": ["string", "null"]}
+  }
+}

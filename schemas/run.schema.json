@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cbb-box/2/run.schema.json",
+  "title": "Run record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["run_id", "box_id", "stage", "engine", "model", "prompt_sha256", "input_sha256", "output_sha256", "tokens_in", "tokens_out", "cost_usd", "started_at", "ended_at", "status"],
+  "properties": {
+    "run_id": {"type": "string"},
+    "box_id": {"type": "string"},
+    "stage": {"type": "string"},
+    "unit_id": {"type": ["string", "null"]},
+    "engine": {"type": "string"},
+    "model": {"type": "string"},
+    "prompt_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "input_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "output_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "tokens_in": {"type": "integer", "minimum": 0},
+    "tokens_out": {"type": "integer", "minimum": 0},
+    "cost_usd": {"type": "number", "minimum": 0},
+    "started_at": {"type": "string", "format": "date-time"},
+    "ended_at": {"type": "string", "format": "date-time"},
+    "status": {"enum": ["ok", "error", "abstain"]},
+    "error": {"type": ["string", "null"]}
+  }
+}

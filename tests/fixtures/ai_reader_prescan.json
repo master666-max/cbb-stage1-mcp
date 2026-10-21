@@ -1,0 +1,12 @@
+{
+  "entities": [
+    {"name": "韩立", "type": "person", "confidence": "high"},
+    {"name": "七玄门", "type": "org", "confidence": "high"},
+    {"name": "青牛镇", "type": "location", "confidence": "high"},
+    {"name": "二愣子", "type": "person", "confidence": "medium"}
+  ],
+  "alias_groups": [
+    ["韩立", "二愣子"]
+  ],
+  "rejected": ["说道", "宗门"]
+}

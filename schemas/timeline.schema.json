@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cbb-box/2/timeline.schema.json",
+  "title": "Timeline constraint",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["constraint_id", "book_id", "kind", "left", "right", "source", "confidence", "evidence", "status", "deps"],
+  "properties": {
+    "constraint_id": {"type": "string", "pattern": "^t:[0-9a-f]{16,64}$"},
+    "book_id": {"type": "string", "pattern": "^[a-z0-9_-]+$"},
+    "kind": {"enum": ["before", "after", "during", "overlap"]},
+    "left": {"$ref": "#/$defs/node"},
+    "right": {"$ref": "#/$defs/node"},
+    "source": {"enum": ["explicit", "inferred"]},
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "confidence_method": {"type": ["string", "null"]},
+    "verify": {
+      "type": ["object", "null"],
+      "additionalProperties": true,
+      "required": ["method", "result"],
+      "properties": {
+        "method": {"enum": ["nli_pairwise", "explicit_expression", "topological"]},
+        "question": {"type": ["string", "null"]},
+        "result": {"enum": ["yes", "no", "unknown"]},
+        "verifier": {"type": ["string", "null"]},
+        "model": {"type": ["string", "null"]}
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["unit_id", "start", "end", "quote", "quote_sha256", "occurrence"],
+        "properties": {
+          "unit_id": {"type": "string", "pattern": "^u:"},
+          "start": {"type": "integer", "minimum": 0},
+          "end": {"type": "integer", "minimum": 0},
+          "quote": {"type": "string", "minLength": 1},
+          "quote_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+          "occurrence": {"type": "integer", "minimum": 1}
+        }
+      }
+    },
+    "status": {"enum": ["asserted", "inferred", "disputed"]},
+    "deps": {"type": "array", "items": {"type": "string"}}
+  },
+  "$defs": {
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": {"enum": ["event", "unit", "time_point"]},
+        "id": {"type": "string"}
+      }
+    }
+  }
+}

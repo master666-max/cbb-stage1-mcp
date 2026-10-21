@@ -1,0 +1,29 @@
+# Runtime output.
+# Root-anchored on purpose: a bare `box/` also excluded `src/cbb_stage1/box/`, the
+# package that writes the box. Caught by looking at what actually got staged (11 files
+# for a 319-file tree), not by reading the file and nodding.
+/artifacts/
+/dist/
+/work/
+/box/
+*.log
+*.pid
+*.pid.rc
+
+# Caches
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# Recorded run fixtures: not shipped (built from copyrighted source)
+/tests/data/
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

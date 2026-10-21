@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cbb-box/2/conflict.schema.json",
+  "title": "Projection-facing conflict",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["conflict_id", "book_id", "kind", "left", "right", "detail", "status"],
+  "properties": {
+    "conflict_id": {"type": "string", "pattern": "^c:[0-9a-f]{16,64}$"},
+    "book_id": {"type": "string", "pattern": "^[a-z0-9_-]+$"},
+    "kind": {"enum": ["attribute", "relation", "timeline"]},
+    "left": {"type": "string", "pattern": "^a:"},
+    "right": {"type": "string", "pattern": "^a:"},
+    "detail": {"type": "string", "minLength": 1},
+    "status": {"enum": ["open", "resolved"]},
+    "decision": {"type": ["string", "null"], "enum": ["left", "right", "merge", "disputed", "superseded", null]},
+    "resolved_by": {"type": ["string", "null"]},
+    "at": {"type": ["string", "null"]}
+  }
+}

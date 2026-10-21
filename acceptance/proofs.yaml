@@ -1,0 +1,559 @@
+proofs:
+  A1:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[A1]
+    work:
+    - plan/wiring.json
+  A11:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[A11]
+    work:
+    - plan/wiring.json
+  A12:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[A12]
+    work:
+    - plan/wiring.json
+  A13:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[A13]
+    work:
+    - plan/wiring.json
+  A14:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[A14]
+    work:
+    - plan/wiring.json
+  A17:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[A17]
+    work:
+    - plan/wiring.json
+  A18:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[A18]
+    work:
+    - plan/wiring.json
+  A19:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[A19]
+    work:
+    - plan/wiring.json
+  A2:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[A2]
+    work:
+    - plan/wiring.json
+  A20:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[A20]
+    work:
+    - plan/wiring.json
+  A21:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[A21]
+    work:
+    - plan/wiring.json
+  A22:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[A22]
+    work:
+    - plan/wiring.json
+  A23:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[A23]
+    work:
+    - plan/wiring.json
+  A24:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[A24]
+    work:
+    - plan/wiring.json
+  A25:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[A25]
+    work:
+    - plan/wiring.json
+  A26:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[A26]
+    work:
+    - plan/wiring.json
+  A27:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[A27]
+    work:
+    - plan/wiring.json
+  A3:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[A3]
+    work:
+    - plan/wiring.json
+  A4:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[A4]
+    work:
+    - plan/wiring.json
+  A5:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[A5]
+    work:
+    - plan/wiring.json
+  A6:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[A6]
+    work:
+    - plan/wiring.json
+  A7:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[A7]
+    work:
+    - plan/wiring.json
+  A8:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[A8]
+    work:
+    - plan/wiring.json
+  A9:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[A9]
+    work:
+    - plan/wiring.json
+  B10:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[B10]
+    work:
+    - plan/wiring.json
+  B2:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[B2]
+    work:
+    - plan/wiring.json
+  B3:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[B3]
+    work:
+    - plan/wiring.json
+  B4:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[B4]
+    work:
+    - plan/wiring.json
+  B5:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[B5]
+    work:
+    - plan/wiring.json
+  B6:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[B6]
+    work:
+    - plan/wiring.json
+  B7:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[B7]
+    work:
+    - plan/wiring.json
+  B8:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[B8]
+    work:
+    - plan/wiring.json
+  B9:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[B9]
+    work:
+    - plan/wiring.json
+  C1:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[C1]
+    work:
+    - plan/wiring.json
+  C10:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[C10]
+    work:
+    - plan/wiring.json
+  C2:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[C2]
+    work:
+    - plan/wiring.json
+  C3:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[C3]
+    work:
+    - plan/wiring.json
+  C4:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[C4]
+    work:
+    - plan/wiring.json
+  C6:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[C6]
+    work:
+    - plan/wiring.json
+  C7:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[C7]
+    work:
+    - plan/wiring.json
+  C8:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[C8]
+    work:
+    - plan/wiring.json
+  C9:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[C9]
+    work:
+    - plan/wiring.json
+  D1:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[D1]
+    work:
+    - plan/wiring.json
+  D10:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[D10]
+    work:
+    - plan/wiring.json
+  D11:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[D11]
+    work:
+    - plan/wiring.json
+  D12:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[D12]
+    work:
+    - plan/wiring.json
+  D13:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[D13]
+    work:
+    - plan/wiring.json
+  D2:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[D2]
+    work:
+    - plan/wiring.json
+  D4:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[D4]
+    work:
+    - plan/wiring.json
+  D6:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[D6]
+    work:
+    - plan/wiring.json
+  D7:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[D7]
+    work:
+    - plan/wiring.json
+  D8:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[D8]
+    work:
+    - plan/wiring.json
+  D9:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[D9]
+    work:
+    - plan/wiring.json
+  E1:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[E1]
+    work:
+    - plan/wiring.json
+  E10:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[E10]
+    work:
+    - plan/wiring.json
+  E11:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[E11]
+    work:
+    - plan/wiring.json
+  E12:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[E12]
+    work:
+    - plan/wiring.json
+  E2:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[E2]
+    work:
+    - plan/wiring.json
+  E3:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[E3]
+    work:
+    - plan/wiring.json
+  E4:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[E4]
+    work:
+    - plan/wiring.json
+  E6:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[E6]
+    work:
+    - plan/wiring.json
+  E9:
+    box:
+    - manifest.json
+    entry: cbb_stage1.cli run --box
+    level: WIRED
+    live_required: false
+    test: tests/acceptance/test_07_runtime.py::test_proof[E9]
+    work:
+    - plan/wiring.json

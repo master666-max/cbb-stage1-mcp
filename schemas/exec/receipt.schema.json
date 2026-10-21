@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cbb-exec/receipt.schema.json",
+  "title": "Subagent receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "role", "status", "unit_id", "output_path", "output_sha256", "counts", "new_entities", "anomalies", "tokens", "cost_usd", "started_at", "ended_at", "error"],
+  "properties": {
+    "task_id": {"type": "string", "minLength": 3},
+    "role": {"enum": ["extractor", "verifier", "resolver", "arbiter", "abducer", "summarizer"]},
+    "status": {"enum": ["ok", "error", "abstain"]},
+    "unit_id": {"type": ["string", "null"], "pattern": "^u:"},
+    "output_path": {"type": "string"},
+    "output_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mentions", "entities", "assertions", "events", "cues"],
+      "properties": {
+        "mentions": {"type": "integer", "minimum": 0},
+        "entities": {"type": "integer", "minimum": 0},
+        "assertions": {"type": "integer", "minimum": 0},
+        "events": {"type": "integer", "minimum": 0},
+        "cues": {"type": "integer", "minimum": 0}
+      }
+    },
+    "new_entities": {"type": "array", "items": {"type": "string"}, "maxItems": 30},
+    "new_entities_path": {"type": ["string", "null"]},
+    "anomalies": {"type": "array", "items": {"type": "string"}},
+    "tokens": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["in", "out"],
+      "properties": {
+        "in": {"type": "integer", "minimum": 0},
+        "out": {"type": "integer", "minimum": 0}
+      }
+    },
+    "cost_usd": {"type": "number", "minimum": 0},
+    "started_at": {"type": "string", "format": "date-time"},
+    "ended_at": {"type": "string", "format": "date-time"},
+    "error": {"type": ["string", "null"]}
+  }
+}

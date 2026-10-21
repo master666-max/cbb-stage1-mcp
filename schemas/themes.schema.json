@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cbb-box/2/themes.schema.json",
+  "title": "Theme / motif (derived/inference, §5.20)",
+  "description": "Word-frequency motifs with their distribution across units, per F02-MotifDistantReading (distant reading: statistics of word occurrences, grouped by period). Statistical basis instead of evidence, which I27 allows.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["theme_id", "book_id", "motif", "frequency", "units", "method"],
+  "properties": {
+    "theme_id": {"type": "string", "pattern": "^th:[0-9a-f]{16,64}$"},
+    "book_id": {"type": "string", "pattern": "^[a-z0-9_-]+$"},
+    "motif": {"type": "string", "minLength": 1},
+    "frequency": {"type": "integer", "minimum": 1},
+    "units": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "pattern": "^u:"}
+    },
+    "unit_counts": {
+      "type": "object",
+      "description": "unit_id -> occurrence count, so a reader can see the distribution rather than only the total.",
+      "additionalProperties": {"type": "integer", "minimum": 1}
+    },
+    "method": {"enum": ["word_frequency_by_segment"]},
+    "note": {"type": "string"},
+    "produced_by": {"type": "string"},
+    "created_at": {"type": ["string", "null"]}
+  }
+}

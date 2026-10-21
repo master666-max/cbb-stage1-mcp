@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cbb-box/2/mention.schema.json",
+  "title": "Mention",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["mention_id", "unit_id", "surface", "start", "end", "occurrence", "entity_id", "mention_type", "confidence", "produced_by"],
+  "properties": {
+    "mention_id": {"type": "string", "pattern": "^m:.+$"},
+    "unit_id": {"type": "string", "pattern": "^u:"},
+    "surface": {"type": "string", "minLength": 1},
+    "start": {"type": "integer", "minimum": 0},
+    "end": {"type": "integer", "minimum": 0},
+    "occurrence": {"type": "integer", "minimum": 1},
+    "sentence_span": {"type": "array", "items": {"type": "integer", "minimum": 0}, "minItems": 2, "maxItems": 2},
+    "sentence": {"type": "string"},
+    "entity_id": {"type": ["string", "null"], "pattern": "^e:"},
+    "mention_type": {"enum": ["name", "alias", "pronoun", "title", "description"]},
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "produced_by": {"type": "string"}
+  }
+}

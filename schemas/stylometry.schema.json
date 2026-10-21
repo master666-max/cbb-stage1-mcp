@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cbb-box/2/stylometry.schema.json",
+  "title": "Stylometry (derived/inference, §5.20)",
+  "description": "Pure statistics over one unit's text: sentence and word lengths, punctuation density, dialogue share, type-token ratio. No model call, no evidence quote — I27 accepts a statistical basis (method + sample_chars) in place of evidence.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "style_id",
+    "book_id",
+    "unit_id",
+    "method",
+    "sample_chars",
+    "metrics"
+  ],
+  "properties": {
+    "style_id": {"type": "string", "pattern": "^st:[0-9a-f]{16,64}$"},
+    "book_id": {"type": "string", "pattern": "^[a-z0-9_-]+$"},
+    "unit_id": {"type": "string", "pattern": "^u:"},
+    "method": {"enum": ["char_statistics"]},
+    "sample_chars": {"type": "integer", "minimum": 0},
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sentence_len_mean",
+        "sentence_len_p50",
+        "sentence_len_p90",
+        "word_len_mean",
+        "punctuation_density",
+        "dialogue_ratio",
+        "type_token_ratio",
+        "sentence_count"
+      ],
+      "properties": {
+        "sentence_len_mean": {"type": "number", "minimum": 0},
+        "sentence_len_p50": {"type": "number", "minimum": 0},
+        "sentence_len_p90": {"type": "number", "minimum": 0},
+        "word_len_mean": {"type": "number", "minimum": 0},
+        "punctuation_density": {"type": "number", "minimum": 0, "maximum": 1},
+        "dialogue_ratio": {"type": "number", "minimum": 0, "maximum": 1},
+        "type_token_ratio": {"type": "number", "minimum": 0, "maximum": 1},
+        "sentence_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "note": {"type": "string"},
+    "produced_by": {"type": "string"},
+    "created_at": {"type": ["string", "null"]}
+  }
+}

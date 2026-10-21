@@ -1,0 +1,87 @@
+# Work-table contract: producer / consumers / empty policy.
+# EMPTY-VALID = empty is a true state; GAP = missing producer/algorithm; EXTERNAL = needs outside artifact.
+tables:
+  plan/units.jsonl:
+    producer: cbb_stage1.ingest.units
+    consumers: [cbb_stage1.box.writer]
+    empty_policy: EMPTY-VALID
+  plan/wiring.json:
+    producer: cbb_stage1.orchestrator.postprocess
+    consumers: [cbb_stage1.qc.acceptance, cbb_stage1.qc.proof]
+    empty_policy: GAP
+  resolve/entity_candidates.jsonl:
+    producer: cbb_stage1.resolve.integration
+    consumers: [cbb_stage1.assemble.integration, cbb_stage1.box.writer]
+    empty_policy: EMPTY-VALID
+  resolve/alias_map.json:
+    producer: cbb_stage1.resolve.integration
+    consumers: [cbb_stage1.assemble.integration]
+    empty_policy: EMPTY-VALID
+  resolve/merges.jsonl:
+    producer: cbb_stage1.resolve.integration
+    consumers: [cbb_stage1.box.writer]
+    empty_policy: EMPTY-VALID
+  assemble/assertions.jsonl:
+    producer: cbb_stage1.assemble.integration
+    consumers: [cbb_stage1.claims.integration, cbb_stage1.validate.integration, cbb_stage1.box.writer]
+    empty_policy: EMPTY-VALID
+  assemble/events.jsonl:
+    producer: cbb_stage1.assemble.integration
+    consumers: [cbb_stage1.temporal.integration, cbb_stage1.validate.integration, cbb_stage1.box.writer]
+    empty_policy: EMPTY-VALID
+  assemble/claims.jsonl:
+    producer: cbb_stage1.claims.integration
+    consumers: [cbb_stage1.box.writer]
+    empty_policy: EMPTY-VALID
+  assemble/promoted_facts.jsonl:
+    producer: cbb_stage1.claims.integration
+    consumers: [cbb_stage1.box.writer]
+    empty_policy: EMPTY-VALID
+  assemble/cues.jsonl:
+    producer: cbb_stage1.cues.integration
+    consumers: [cbb_stage1.validate.integration, cbb_stage1.box.writer]
+    empty_policy: EMPTY-VALID
+  assemble/timeline.jsonl:
+    producer: cbb_stage1.temporal.integration
+    consumers: [cbb_stage1.validate.integration, cbb_stage1.box.writer]
+    empty_policy: EMPTY-VALID
+  assemble/entity_cards.jsonl:
+    producer: cbb_stage1.dedupe.integration
+    consumers: [cbb_stage1.box.writer]
+    empty_policy: EMPTY-VALID
+  assemble/dedupe_map.json:
+    producer: cbb_stage1.dedupe.integration
+    consumers: [cbb_stage1.box.writer]
+    empty_policy: EMPTY-VALID
+  audit/conflicts.jsonl:
+    producer: cbb_stage1.validate.integration
+    consumers: [cbb_stage1.derive.integration, cbb_stage1.box.writer]
+    empty_policy: EMPTY-VALID
+  audit/decisions.jsonl:
+    producer: cbb_stage1.validate.integration
+    consumers: [cbb_stage1.box.writer]
+    empty_policy: EMPTY-VALID
+  audit/quarantine.jsonl:
+    producer: cbb_stage1.validate.integration
+    consumers: [cbb_stage1.box.writer]
+    empty_policy: EMPTY-VALID
+  derive/summaries.jsonl:
+    producer: cbb_stage1.derive.integration
+    consumers: [cbb_stage1.box.writer]
+    empty_policy: EMPTY-VALID
+  derive/forecasts.jsonl:
+    producer: cbb_stage1.derive.integration
+    consumers: [cbb_stage1.box.writer]
+    empty_policy: EMPTY-VALID
+  derive/raptor.jsonl:
+    producer: cbb_stage1.derive.integration
+    consumers: [cbb_stage1.box.writer]
+    empty_policy: EMPTY-VALID
+  derive/hypotheses.jsonl:
+    producer: cbb_stage1.derive.integration
+    consumers: [cbb_stage1.box.writer]
+    empty_policy: EMPTY-VALID
+  derive/community.jsonl:
+    producer: cbb_stage1.derive.integration
+    consumers: [cbb_stage1.box.writer]
+    empty_policy: EMPTY-VALID

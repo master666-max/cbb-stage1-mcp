@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cbb-box/2/hypothesis.schema.json",
+  "title": "Hypothesis (derived, abductive)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["hypothesis_id", "book_id", "scope", "claim", "evidence_sufficiency", "missing_premises", "support", "against", "consistency", "plausibility", "status", "confidence", "method", "derived_from"],
+  "properties": {
+    "hypothesis_id": {"type": "string", "pattern": "^hy:[0-9a-f]{16,64}$"},
+    "book_id": {"type": "string", "pattern": "^[a-z0-9_-]+$"},
+    "scope": {"enum": ["setting", "foreshadow", "motivation", "prediction"]},
+    "claim": {"type": "string", "minLength": 1},
+    "evidence_sufficiency": {"enum": ["sufficient", "insufficient"]},
+    "missing_premises": {"type": "array", "items": {"type": "string"}},
+    "support": {"type": "array", "items": {"type": "object"}},
+    "against": {"type": "array", "items": {"type": "object"}},
+    "consistency": {"enum": ["pass", "fail", "unknown"]},
+    "plausibility": {"enum": ["high", "medium", "low", "unknown"]},
+    "status": {"enum": ["candidate", "verified", "rejected"]},
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "method": {"type": "string"},
+    "derived_from": {"type": "array", "items": {"type": "string"}},
+    "created_at": {"type": ["string", "null"]}
+  }
+}

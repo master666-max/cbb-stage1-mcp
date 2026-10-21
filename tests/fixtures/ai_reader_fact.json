@@ -1,0 +1,86 @@
+{
+  "chapter_id": 1,
+  "novel_id": "testbook",
+  "characters": [
+    {
+      "name": "韩立",
+      "new_aliases": ["二愣子"],
+      "appearance": "皮肤黑黑的农家少年",
+      "abilities_gained": [],
+      "locations_in_chapter": ["青牛镇", "七玄门"]
+    },
+    {
+      "name": "三叔",
+      "new_aliases": [],
+      "appearance": null,
+      "abilities_gained": [],
+      "locations_in_chapter": ["青牛镇", "七玄门"]
+    }
+  ],
+  "relationships": [
+    {
+      "person_a": "韩立",
+      "person_b": "三叔",
+      "relation_type": "叔侄",
+      "is_new": true,
+      "previous_type": null,
+      "evidence": "韩立点了点头，跟着三叔向七玄门走去。"
+    }
+  ],
+  "locations": [
+    {"name": "青牛镇", "type": "城镇", "parent": null, "peers": null, "description": "韩立家乡", "role": "setting"},
+    {"name": "七玄门", "type": "宗门", "parent": null, "peers": null, "description": "附近最大的宗门", "role": "setting"}
+  ],
+  "spatial_relationships": [
+    {
+      "source": "七玄门",
+      "target": "青牛镇",
+      "relation_type": "direction",
+      "value": "north_of",
+      "confidence": "high",
+      "narrative_evidence": "七玄门坐落于青牛镇北方三十里处",
+      "distance_class": "far",
+      "confidence_score": 0.9,
+      "waypoints": null
+    }
+  ],
+  "item_events": [
+    {
+      "item_name": "行囊",
+      "item_type": "物品",
+      "action": "出现",
+      "actor": "韩立",
+      "recipient": null,
+      "description": "韩立随身携带的行囊"
+    }
+  ],
+  "org_events": [
+    {
+      "org_name": "七玄门",
+      "org_type": "宗门",
+      "member": "韩立",
+      "role": "弟子",
+      "action": "加入",
+      "description": "韩立前往七玄门",
+      "org_relation": null
+    }
+  ],
+  "events": [
+    {
+      "summary": "韩立与三叔前往七玄门",
+      "type": "旅行",
+      "importance": "high",
+      "participants": ["韩立", "三叔"],
+      "location": "青牛镇"
+    }
+  ],
+  "new_concepts": [
+    {
+      "name": "宗门",
+      "category": "修炼体系",
+      "definition": "七玄门为附近最大的宗门。",
+      "related": ["七玄门"]
+    }
+  ],
+  "world_declarations": []
+}

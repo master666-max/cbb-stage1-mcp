@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cbb-box/2/citation.schema.json",
+  "title": "Citation (stable anchor)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["citation_id", "book_id", "unit_id", "start", "end", "quote", "quote_sha256", "occurrence", "source_hash"],
+  "properties": {
+    "citation_id": {"type": "string", "pattern": "^c:[0-9a-f]{16,64}$"},
+    "book_id": {"type": "string", "pattern": "^[a-z0-9_-]+$"},
+    "unit_id": {"type": "string", "pattern": "^u:"},
+    "start": {"type": "integer", "minimum": 0},
+    "end": {"type": "integer", "minimum": 0},
+    "quote": {"type": "string", "minLength": 1},
+    "quote_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "occurrence": {"type": "integer", "minimum": 1},
+    "source_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  }
+}
