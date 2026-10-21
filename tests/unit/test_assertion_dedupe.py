@@ -27,7 +27,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 #: Recorded engine output from the spk5 run, which is what actually produced the
 #: duplicate pair. It is 41 KB, so it is committed under `tests/data/` and travels with
-#: the repository — the earlier version pinned an absolute path under a temp directory, which
+#: the repository — the earlier version pinned an absolute path under `D:\tmp`, which
 #: meant the test only ran on the machine that had produced it. An environment variable
 #: still wins, for anyone replaying a different run.
 SOURCE = Path(

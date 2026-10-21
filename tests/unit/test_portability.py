@@ -140,7 +140,7 @@ def test_the_model_server_port_is_configured_not_assumed() -> None:
 
 # ── tests: no absolute fixture paths ───────────────────────────────────────
 def test_no_test_reads_an_absolute_path() -> None:
-    """A test bound to an absolute path passes here and fails everywhere else.
+    """A test bound to `D:\\...` passes here and fails everywhere else.
 
     Only `Path("<drive>:...")` and `Path(r"<drive>:...")` count. A bare string literal
     is left alone: `test_mcp_server.py` uses ``"C:\\\\a b\\\\python.exe"`` as parse input,

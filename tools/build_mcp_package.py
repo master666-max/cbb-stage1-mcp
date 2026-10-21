@@ -22,7 +22,7 @@ import json
 import shutil
 from pathlib import Path
 
-# Derived from this file: the script lives in `<project>/tools/`, so parents[1] is the project.`nPROJECT = Path(__file__).resolve().parents[1]
+PROJECT = Path(r"D:\qoder专用！！！\V5\cbb_stage1_v6")
 DIST = PROJECT / "dist" / "cbb-mcp"
 
 if DIST.exists():
@@ -158,17 +158,42 @@ print()
 print("=" * 70)
 print("standalone check: import the library using ONLY the package dir")
 print("=" * 70)
+# The check is a small script of its own, written without %-formatting: the previous
+# version used "%s" placeholders and the embedded "%d" collided with them, so the check
+# raised TypeError instead of running. A packaging script that cannot verify its own
+# output is worse than no check.
+CHECK = """
+import sys
+sys.path.insert(0, {dist!r})
+import cbb_stage1.box.lint, cbb_stage1.model_ops, cbb_stage1.validate.adjudication
+print("library imports OK")
+
+import importlib.util as u
+spec = u.spec_from_file_location("mcp", {server!r})
+module = u.module_from_spec(spec)
+sys.modules["mcp"] = module
+spec.loader.exec_module(module)
+print("server tools:", len(module._DISPATCH))
+
+result = module.cbb_capabilities({{}})
+print("cbb_capabilities ok:", result.get("ok"))
+print("STANDALONE PASS")
+"""
+check = CHECK.format(dist=str(DIST), server=str(DIST / "server.py"))
 result = subprocess.run(
-    [sys.executable, "-X", "utf8", "-c",
-     "import sys; sys.path.insert(0, r'%s');"
-     "import cbb_stage1.box.lint, cbb_stage1.model_ops, cbb_stage1.validate.adjudication;"
-     "print('library imports OK');"
-     "import importlib.util as u;"
-     "s=u.spec_from_file_location('mcp', r'%s');"
-     "m=u.module_from_spec(s); sys.modules['mcp']=m; s.loader.exec_module(m);"
-     "print('server imports OK, tools=%d' % len(m._DISPATCH))"
-     % (DIST, DIST / "server.py")],
+    [sys.executable, "-X", "utf8", "-c", check],
     cwd=str(DIST), capture_output=True, text=True, encoding="utf-8", errors="replace",
 )
 print(result.stdout.strip() or result.stderr[-800:])
 print(f"exit={result.returncode}")
+if result.returncode != 0:
+    raise SystemExit("the package does not run standalone")
+
+# The check above imports the package from DIST, which leaves __pycache__ behind. Strip
+# it so the zipped artefact carries code, not bytecode compiled on the build machine
+# (57 .pyc entries in the first release, roughly doubling the archive).
+for cache in list(DIST.rglob("__pycache__")):
+    shutil.rmtree(cache, ignore_errors=True)
+for stale in list(DIST.rglob("*.pyc")):
+    stale.unlink(missing_ok=True)
+print("stripped __pycache__ from the package")

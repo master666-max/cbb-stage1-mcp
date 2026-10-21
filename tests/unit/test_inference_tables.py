@@ -28,7 +28,7 @@ from cbb_stage1.derive.themes import build_themes, count_motifs
 
 ROOT = Path(__file__).resolve().parents[2]
 #: The schemas live beside the code, not at an absolute path: the previous version
-#: pinned an absolute path to the design tree, which works on exactly one
+#: pinned `D:\qoder专用！！！\V5\设计\抽取段-v6\schemas`, which works on exactly one
 #: machine. `parents[2]` is `cbb_stage1_v6`, so `parent` is `V5`.
 from cbb_stage1.schemas import schemas_dir
 

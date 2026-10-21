@@ -19,7 +19,6 @@ missing file somewhere downstream.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Iterable
 
 __all__ = ["candidate_dirs", "find_script", "schemas_dir"]
 
