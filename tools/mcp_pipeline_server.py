@@ -37,11 +37,55 @@ SERVER_INFO = {"name": "cbb-pipeline-mcp", "version": "0.1.0"}
 #: Directory holding the standalone gate tools (field_coverage, call_wiring).
 _TOOLS_DIR = Path(__file__).resolve().parent
 
-#: The repository root. The two module-level tools (``field_coverage``,
-#: ``call_wiring``) are scripts rather than package modules, so the server loads them
-#: in-process by path instead of spawning them. Spawning made the MCP surface depend on
-#: a subprocess for a capability it can own directly.
-PROJECT_ROOT = _TOOLS_DIR.parent
+def _find_project_root(server_file: str | Path) -> Path:
+    """Locate the tree this file belongs to, in either supported layout.
+
+    The file sits at ``<project>/tools/<name>.py`` in the checkout and at
+    ``<package>/server.py`` in the built package. ``_TOOLS_DIR.parent`` is right for the
+    first and yields the package's **parent** for the second — measured on the real
+    install, it resolved ``tools_dir`` to ``<install-dir>\\tools`` and ``root`` to
+    ``<install-dir>\\src\\cbb_stage1``, both absent, so ``gate_tools``, ``schema_dir`` and
+    ``call_wiring`` all failed on a package that contained every file they looked for.
+
+    Marker walk rather than arithmetic: the nearest ancestor holding ``cbb_stage1/``
+    (packaged) or ``src/cbb_stage1/`` (checkout). With no marker anywhere it returns the
+    start directory — escaping to a parent that has nothing is how it broke.
+    """
+    start = Path(server_file).resolve().parent
+    for candidate in (start, *start.parents):
+        if (candidate / "cbb_stage1").is_dir() or (
+            candidate / "src" / "cbb_stage1"
+        ).is_dir():
+            return candidate
+    return start
+
+
+def _module_source_dir(root: Path) -> Path:
+    """Where ``cbb_stage1`` is importable from: ``root/src`` in the checkout, ``root`` packaged."""
+    nested = root / "src" / "cbb_stage1"
+    return nested if nested.is_dir() else root / "cbb_stage1"
+
+
+#: The repository root, resolved for whichever layout this file is running from.
+#: Delegates to the library so the server, the preflight probe and the schema resolver
+#: cannot disagree about where the tree is — two copies of this rule drift, and only one
+#: of them gets fixed.
+def _library_root() -> Path:
+    import sys as _sys
+
+    for extra in (_TOOLS_DIR / ".." / "src", _TOOLS_DIR):
+        resolved = extra.resolve()
+        if (resolved / "cbb_stage1").is_dir() and str(resolved) not in _sys.path:
+            _sys.path.insert(0, str(resolved))
+    from cbb_stage1.schemas import project_root as _project_root
+
+    return _project_root(__file__)
+
+
+PROJECT_ROOT = _library_root()
+
+#: The importable package directory, which differs between the two layouts.
+MODULE_SOURCE_DIR = _module_source_dir(PROJECT_ROOT)
 
 _TOOL_MODULE_CACHE: dict[str, Any] = {}
 
@@ -1272,7 +1316,7 @@ def cbb_capabilities(args: dict[str, Any]) -> dict[str, Any]:
     reach?" without a human auditing the CLI. This compares the CLI command set
     against the MCP tool set and reports the difference.
     """
-    cli_path = Path(__file__).resolve().parent.parent / "src" / "cbb_stage1" / "cli.py"
+    cli_path = MODULE_SOURCE_DIR / "cli.py"
     covered = {
         "run": "cbb_start_run",
         "doctor": "cbb_doctor",
@@ -1480,7 +1524,7 @@ def cbb_field_coverage(args: dict[str, Any]) -> dict[str, Any]:
         return {"error": "box is required"}
     coverage = _load_tool_module("field_coverage")
     schema_dir = Path(
-        str(args.get("schema_dir") or (PROJECT_ROOT / "设计" / "抽取段-v6" / "schemas"))
+        str(args.get("schema_dir") or (PROJECT_ROOT / "schemas"))
     )
     stats, notes = coverage.check_box(Path(box), schema_dir)
     defects = [
@@ -1512,7 +1556,7 @@ def cbb_call_wiring(args: dict[str, Any]) -> dict[str, Any]:
     its functions are invoked. The difference is where 52 written-but-unwired
     functions hid.
     """
-    root = str(args.get("root") or (Path(__file__).resolve().parent.parent / "src" / "cbb_stage1"))
+    root = str(args.get("root") or MODULE_SOURCE_DIR)
     cw = _load_tool_module("call_wiring")
     uncalled = cw.analyse(Path(root))
     return {

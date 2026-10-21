@@ -766,15 +766,21 @@ def _probe_gate_tools() -> dict[str, Any]:
     invoked" and "required field always null". They live outside the package, so
     nothing guarantees they ship with it — and a missing gate tool is worse than no
     gate, because the acceptance run silently skips it.
+
+    Located through ``schemas.tools_dir`` rather than ``parents[2] / "tools"``: the package
+    flattens the scripts to its root, so the arithmetic reported both tools missing on an
+    install that carried them. Measured there: ``tools_dir = <install-dir>\\tools``, absent.
     """
-    tools_dir = Path(__file__).resolve().parents[2] / "tools"
+    from cbb_stage1.schemas import tools_dir as _tools_dir
+
+    resolved = _tools_dir()
     expected = ("field_coverage.py", "call_wiring.py")
     present: dict[str, bool] = {}
     for name in expected:
-        present[name] = (tools_dir / name).is_file()
+        present[name] = (resolved / name).is_file()
 
     evidence: dict[str, Any] = {
-        "tools_dir": str(tools_dir),
+        "tools_dir": str(resolved),
         "present": present,
     }
     missing = [name for name, ok in present.items() if not ok]
@@ -794,7 +800,7 @@ def _probe_gate_tools() -> dict[str, Any]:
 
     broken: list[str] = []
     for name in expected:
-        path = tools_dir / name
+        path = resolved / name
         spec = importlib.util.spec_from_file_location(f"_pf_{path.stem}", path)
         if spec is None or spec.loader is None:
             broken.append(f"{name}: cannot load")

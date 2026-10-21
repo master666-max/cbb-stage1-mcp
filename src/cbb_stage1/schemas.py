@@ -20,23 +20,76 @@ from __future__ import annotations
 
 from pathlib import Path
 
-__all__ = ["candidate_dirs", "find_script", "schemas_dir"]
+__all__ = ["candidate_dirs", "find_script", "project_root", "schemas_dir"]
 
 #: The legacy in-workspace location, relative to the project root.
 LEGACY_PREFIX = ("设计", "抽取段-v6")
 LEGACY = LEGACY_PREFIX + ("schemas",)
 
 
+def project_root(start: str | Path | None = None) -> Path:
+    """The tree this code belongs to, whichever layout it is running from.
+
+    The checkout puts the library at ``<project>/src/cbb_stage1`` and scripts at
+    ``<project>/tools``; the published package flattens both to ``<package>/cbb_stage1`` and
+    ``<package>/server.py``. Callers that assumed the first shape — ``parents[2]``,
+    ``_TOOLS_DIR.parent`` — silently pointed *outside* the package, which is how
+    ``gate_tools``, ``schema_dir`` and ``call_wiring --root`` all failed on an install that
+    contained every file they wanted.
+
+    A marker walk replaces the arithmetic. Two passes, because the two markers are not
+    equally specific: ``<root>/src/cbb_stage1`` names the *checkout* root, while
+    ``<root>/cbb_stage1`` only says "a directory that contains the package" — and in a
+    checkout that is ``<root>/src``, one level below the root. Matching the loose marker
+    first returned ``<root>/src``, which made ``tools_dir()`` point at ``src/`` and
+    reported both gate tools missing from a tree that had them.
+    """
+    if start is None:
+        start = Path(__file__).resolve()
+    here = Path(start).resolve()
+    origin = here if here.is_dir() else here.parent
+    ancestors = (origin, *origin.parents)
+
+    for candidate in ancestors:  # specific: this is the project root
+        if (candidate / "src" / "cbb_stage1").is_dir():
+            return candidate
+    for candidate in ancestors:  # packaged: the root holds the package directly
+        if (candidate / "cbb_stage1").is_dir():
+            return candidate
+
+    # No marker: the checkout shape is the historical default. Better to answer with a
+    # plausible root than to escape upward until something unrelated matches.
+    return origin
+
+
+def tools_dir(root: str | Path | None = None) -> Path:
+    """Where the standalone gate scripts live: ``<root>/tools``, or ``<root>`` packaged.
+
+    The package flattens ``tools/*.py`` to the package root, so a caller that hardcodes
+    ``root/"tools"`` finds an empty directory on every fresh install.
+    """
+    base = project_root(root)
+    nested = base / "tools"
+    return nested if nested.is_dir() else base
+
+
 def candidate_dirs(start: str | Path | None = None) -> tuple[Path, ...]:
     """Every place the schemas may live, most-preferred first."""
     if start is None:
-        # ``src/cbb_stage1/schemas.py`` -> ``src/cbb_stage1`` -> ``src`` -> project
-        here = Path(__file__).resolve()
-        package = here.parent
-        project = package.parents[1]
+        # The layout differs between the checkout and the package, so the root comes from
+        # ``project_root()`` rather than ``package.parents[1]``. That arithmetic assumed
+        # ``<root>/src/cbb_stage1``; in the package, ``<package>/cbb_stage1``, it yields the
+        # package's *parent*, so every candidate missed and the shipped ``schemas/`` was
+        # never found — reported as ``schema_dir: BLOCKED`` on an install that contained it.
+        project = project_root()
     else:
         project = Path(start).resolve()
-        package = project / "src" / "cbb_stage1"
+
+    # The library sits in `src/` in the checkout and at the root in the package. Both
+    # branches above need the same test, so it is done once here.
+    package = project / "src" / "cbb_stage1"
+    if not package.is_dir():
+        package = project / "cbb_stage1"
 
     return (
         project / "schemas",
