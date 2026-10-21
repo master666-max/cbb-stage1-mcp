@@ -24,5 +24,3 @@ tests/data/
 .vscode/
 .DS_Store
 Thumbs.db
-
-# Build metadata\n*.egg-info/

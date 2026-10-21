@@ -22,7 +22,10 @@ import json
 import shutil
 from pathlib import Path
 
-PROJECT = Path(r"D:\qoder专用！！！\V5\cbb_stage1_v6")
+# Derived from this file: the script lives in `<project>/tools/`, so parents[1] is
+# the project. Pinning an absolute path here would also put it in the published
+# tree, which the publish rescan rejects.
+PROJECT = Path(__file__).resolve().parents[1]
 DIST = PROJECT / "dist" / "cbb-mcp"
 
 if DIST.exists():
