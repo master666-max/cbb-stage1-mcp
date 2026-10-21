@@ -9,6 +9,8 @@ alias-ban wording is intentionally kept in Chinese and unchanged (design/02
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 import json
 from functools import lru_cache
 from pathlib import Path
@@ -117,13 +119,32 @@ def build_known_entities_section(
             line += f" 可能别名：{'、'.join(safe_aliases)}（需本章原文确认）"
         lines.append(line)
 
+    def _read(entry: object) -> tuple[str, str, list[str]]:
+        """Pull (name, type, aliases) out of a dict or an object.
+
+        Both shapes arrive here — the scanner returns dicts, the resolver returns objects —
+        and they disagree about the name key: dicts from the entity dictionary use
+        ``name``, while objects and registry rows use ``canonical_name``. The original
+        only looked for the key each loop happened to expect, so a real dictionary
+        rendered as ``- 阿尔法（unknown）`` and its aliases were dropped: the section
+        looked present and carried no usable hint.
+        """
+        if isinstance(entry, Mapping):
+            name = entry.get("canonical_name") or entry.get("name") or ""
+            etype = entry.get("entity_type") or entry.get("type") or ""
+            aliases = list(entry.get("aliases") or [])
+            return str(name), str(etype), [str(a) for a in aliases]
+        name = getattr(entry, "canonical_name", None) or getattr(entry, "name", "") or ""
+        etype = (
+            getattr(entry, "entity_type", None) or getattr(entry, "type", "") or ""
+        )
+        aliases = list(getattr(entry, "aliases", None) or [])
+        return str(name), str(etype), [str(a) for a in aliases]
+
     for entry in glossary_entities or []:
-        if isinstance(entry, dict):
-            _add(entry.get("name", ""), entry.get("type", ""), entry.get("aliases"))
+        _add(*_read(entry))
     for entity in known_entities or []:
-        name = getattr(entity, "canonical_name", None) or getattr(entity, "name", "")
-        etype = getattr(entity, "type", "")
-        _add(str(name), str(etype), list(getattr(entity, "aliases", []) or []))
+        _add(*_read(entity))
 
     if not lines:
         return ""

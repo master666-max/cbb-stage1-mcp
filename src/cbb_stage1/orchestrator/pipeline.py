@@ -28,15 +28,19 @@ Work artifacts are disposable; every artifact write is atomic.
 
 from __future__ import annotations
 
+import logging
 import os
 import queue
 import time
+
+logger = logging.getLogger(__name__)
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Iterator, Sequence
+from collections.abc import Mapping
+from typing import Any, Iterator, Sequence
 
 from cbb_stage1.ids import sha256_hex_bytes, sha256_hex_text
 
@@ -265,7 +269,83 @@ class _ExtractOutcome:
     duration_ms: float = 0.0
 
 
-def _extract_one(engine: Engine, unit, card: dict) -> _ExtractOutcome:
+#: Fields the prompt builder reads off a known-entity entry. The scanner returns
+#: dicts while ``build_known_entities_section`` reads attributes, so a pass-through would
+#: render an empty section — silent, and indistinguishable from not wiring it at all.
+class _KnownEntity:
+    """One pre-scanned entity, in the shape the prompt builder expects."""
+
+    __slots__ = ("canonical_name", "type", "aliases")
+
+    def __init__(self, name: str, entity_type: str, aliases: list[str]) -> None:
+        self.canonical_name = name
+        self.type = entity_type
+        self.aliases = aliases
+
+
+def _normalise_known_entities(entries: Any) -> list[_KnownEntity]:
+    """Turn whatever the scanner returned into prompt-ready entries.
+
+    Accepts dicts (``{"name"/"canonical_name", "entity_type"/"type", "aliases"}``) and
+    objects alike, because the two halves of this pipeline were written against different
+    shapes and the mismatch is exactly what made the dictionary invisible.
+    """
+    resolved: list[_KnownEntity] = []
+    seen: set[str] = set()
+    for entry in entries or ():
+        if isinstance(entry, Mapping):
+            name = str(
+                entry.get("canonical_name") or entry.get("name") or ""
+            ).strip()
+            etype = str(entry.get("entity_type") or entry.get("type") or "")
+            aliases = [str(a) for a in (entry.get("aliases") or ()) if str(a).strip()]
+        else:
+            name = str(
+                getattr(entry, "canonical_name", None) or getattr(entry, "name", "") or ""
+            ).strip()
+            etype = str(getattr(entry, "entity_type", None) or getattr(entry, "type", "") or "")
+            aliases = [str(a) for a in (getattr(entry, "aliases", None) or ()) if str(a).strip()]
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        resolved.append(_KnownEntity(name, etype, aliases))
+    return resolved
+
+
+def _prescan_for_extraction(
+    engine: Any,
+    *,
+    book_id: str,
+    chapters: list[str],
+    titles: list[str] | None = None,
+) -> list[_KnownEntity]:
+    """Run the pre-scan and return its dictionary in a usable shape.
+
+    This is the second half of the two-stage pattern (A1): the first half already ran
+    before extraction, and its result was discarded, so extraction never saw the
+    dictionary it had just paid for.
+
+    A missing or failing scanner degrades to an empty dictionary. It must not abort the
+    run: the dictionary is a hint, and a run without hints is a worse run, not a broken
+    one.
+    """
+    scan = getattr(engine, "prescan_book", None)
+    if not callable(scan):
+        return []
+    try:
+        entries = scan(book_id, chapters, titles)
+    except Exception as exc:  # noqa: BLE001 - hints are optional, the run is not
+        logger.warning("pre-scan failed, extracting without dictionary hints: %s", exc)
+        return []
+    return _normalise_known_entities(entries)
+
+
+def _extract_one(
+    engine: Engine,
+    unit,
+    card: dict,
+    known_entities: Sequence[Any] = (),
+) -> _ExtractOutcome:
     """Call ``engine.extract`` for one unit (the thread-safe unit of work).
 
     C8: workers never raise. Failures are captured so the main thread can apply
@@ -274,7 +354,12 @@ def _extract_one(engine: Engine, unit, card: dict) -> _ExtractOutcome:
     """
     started = time.monotonic()
     try:
-        output = engine.extract(unit.unit_id, unit.text, card, [])
+        # The fourth argument is the pre-scanned dictionary. It used to be a hardcoded
+        # empty list, which is why every extraction ran without hints even though the
+        # pre-scan had just run and the prompt builder could render them.
+        output = engine.extract(
+            unit.unit_id, unit.text, card, known_entities or []
+        )
     except BaseException as exc:  # noqa: BLE001 - policy is applied by the caller
         return _ExtractOutcome(
             unit_id=unit.unit_id,
@@ -288,11 +373,16 @@ def _extract_one(engine: Engine, unit, card: dict) -> _ExtractOutcome:
     )
 
 
-def _extract_from_pool(pool: "queue.Queue[Engine]", unit, card: dict) -> _ExtractOutcome:
+def _extract_from_pool(
+    pool: "queue.Queue[Engine]",
+    unit,
+    card: dict,
+    known_entities: Sequence[Any] = (),
+) -> _ExtractOutcome:
     """C8 live path: each worker takes a thread-confined engine instance."""
     engine = pool.get()
     try:
-        return _extract_one(engine, unit, card)
+        return _extract_one(engine, unit, card, known_entities)
     finally:
         pool.put(engine)
 
@@ -609,28 +699,35 @@ def run_pipeline(
                 f"{len(suspicious_units)} units contain injection-shaped phrases; "
                 "text is treated as untrusted source, never instructions",
             )
+        # A1 second half: the pre-scan dictionary has to reach the extraction prompt.
+        # It used to be built and dropped — the call returned entries, nothing kept them,
+        # and `_extract_one` passed a hardcoded `[]` as the fourth argument. Extraction ran
+        # without hints while the run reported "pre-scan completed", which is why the gap
+        # was invisible for so long.
+        known_entities: list = []
         if hasattr(selected_engine, "prescan_book"):
-            try:
-                with SpanContext("prescan", unit=None):
-                    selected_engine.prescan_book(
-                        cfg.book_id,
-                        [unit.text for unit in units],
-                        [unit.title for unit in units],
-                    )
+            with SpanContext("prescan", unit=None):
+                known_entities = _prescan_for_extraction(
+                    selected_engine,
+                    book_id=cfg.book_id,
+                    chapters=[unit.text for unit in units],
+                    titles=[unit.title for unit in units],
+                )
+            if known_entities:
                 log_decision(
                     "prescan",
                     ["dictionary", "degraded"],
                     "dictionary",
-                    f"pre-scan completed for {len(units)} units",
+                    f"pre-scan produced {len(known_entities)} entities for {len(units)} units",
                 )
-            except Exception as exc:  # explicit degradation, never silent
+            else:
+                # Named degradation, not silence: a run without hints is worse, not broken.
                 log_decision(
                     "prescan",
                     ["dictionary", "degraded"],
                     "degraded",
-                    f"prescan unavailable: {type(exc).__name__}: {exc}",
+                    "pre-scan produced no usable entries; extracting without hints",
                 )
-                telemetry.record_error("prescan", f"{type(exc).__name__}: {exc}")
 
         # -- 2d. INCREMENTAL PLAN (A20/D6) ----------------------------------
         inc_plan = None
@@ -761,7 +858,10 @@ def run_pipeline(
                         if not parallel:
                             for unit_plan in pending:
                                 outcomes[unit_plan.index] = _extract_one(
-                                    selected_engine, unit_plan.unit, unit_plan.card
+                                    selected_engine,
+                                    unit_plan.unit,
+                                    unit_plan.card,
+                                    known_entities,
                                 )
                                 if fail_fast and outcomes[unit_plan.index].error is not None:
                                     break
@@ -776,6 +876,7 @@ def run_pipeline(
                                         engine_pool if engine_pool is not None else selected_engine,
                                         unit_plan.unit,
                                         unit_plan.card,
+                                        known_entities,
                                     )
                                     for unit_plan in pending
                                 }

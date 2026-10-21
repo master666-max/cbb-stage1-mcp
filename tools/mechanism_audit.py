@@ -64,7 +64,14 @@ ITEMS: tuple[Item, ...] = (
     # ── A 抽取管线 ──────────────────────────────────────────────────────────
     Item("A1", "两段式：先词典/别名，再带词典抽", (
         ("src/cbb_stage1/engines/ai_reader/entity_pre_scanner.py", r"pre_?scan"),
+        # the pre-scan itself
         ("src/cbb_stage1/orchestrator/pipeline.py", r"prescan|pre_scan"),
+        # ...and that its result is carried into extraction. The first version of this
+        # probe stopped at "prescan is called", which was true while the dictionary was
+        # being thrown away — the gap was invisible to exactly this kind of check.
+        ("src/cbb_stage1/orchestrator/pipeline.py", r"_prescan_for_extraction"),
+        ("src/cbb_stage1/orchestrator/pipeline.py", r"known_entities"),
+        ("src/cbb_stage1/engines/ai_reader/prompts.py", r"def build_known_entities_section"),
     )),
     Item("A2", "章级十类 schema", (("src/cbb_stage1/engines/ai_reader/schema.py", r"class \w+Fact|EVIDENCE_DESCRIPTION"),)),
     Item("A3", "Pydantic + minItems", (("src/cbb_stage1/engines/ai_reader/schema.py", r"Field\("),)),
@@ -222,7 +229,6 @@ ITEMS: tuple[Item, ...] = (
 #: Items whose code exists but whose full capability is out of reach here. Stated as data
 #: rather than inferred, because a regex cannot tell a working method from a stub.
 LIMITED: dict[str, str] = {
-    "A1": "预扫描器与 pipeline 的 prescan 已接线；「先扫一遍再带词典抽」的显式两段编排仍不完整",
     "B3": "需要隐状态/logprobs；主推理走 host 传输只回文本，喂 logprobs 才测得到",
     "B4": "白盒分支同上；黑盒分支可用（实测 conf=1.0 但那是常数，不是真信号）",
     "B5": "需要 attention；本地可训（8 样本 → 0.886），主推理路径拿不到",
