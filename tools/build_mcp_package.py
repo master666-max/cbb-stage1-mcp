@@ -22,7 +22,7 @@ import json
 import shutil
 from pathlib import Path
 
-PROJECT = Path(r"D:\qoder专用！！！\V5\cbb_stage1_v6")
+# Derived from this file: the script lives in `<project>/tools/`, so parents[1] is the project.`nPROJECT = Path(__file__).resolve().parents[1]
 DIST = PROJECT / "dist" / "cbb-mcp"
 
 if DIST.exists():
