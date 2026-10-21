@@ -327,6 +327,12 @@ def run(
     #: verified is information, and it must not look like a claim that simply had no
     #: verdict.
     afev_errors: list[dict[str, Any]] = []
+    #: B1 CoVe is opt-in and costs 2 + questions calls per claim.
+    wants_cove = bool(
+        upstream.get("cove") if isinstance(upstream, Mapping) else False
+    )
+    cove_llm = upstream.get("llm") if isinstance(upstream, Mapping) else None
+    cove_revised = 0
     for statement in statements:
         statement_id = str(statement.assertion_id or "")
         questions = qa_map.get(statement_id)
@@ -460,6 +466,37 @@ def run(
         ):
             afev_degenerate += 1
 
+        # B1 CoVe (§ the four-step loop). Opt-in like every other paid analysis: the
+        # caller passes `upstream["cove"] = True` and an `llm`. Cost is 2 + questions
+        # calls per claim (plan, compare, one per question) plus a revision when the
+        # comparison finds a contradiction, so it is never on by default.
+        #
+        # The result is recorded on the claim, not acted on: a revision is a proposal a
+        # reader can inspect, and rewriting a claim here would delete the evidence of
+        # what the extractor actually produced.
+        if wants_cove:
+            from cbb_stage1.validate.cove import cove_verify
+
+            try:
+                cove_result = cove_verify(
+                    str(row.get("normalized_claim") or ""),
+                    llm=cove_llm,
+                    evidence=statement_evidence,
+                )
+            except Exception as exc:  # noqa: BLE001 - one claim must not abort the stage
+                cove_result = None
+                afev_errors.append(
+                    {
+                        "claim_id": row.get("claim_id"),
+                        "stage": "cove",
+                        "error": f"{type(exc).__name__}: {exc}",
+                    }
+                )
+            if cove_result is not None:
+                row["cove"] = cove_result.as_dict()
+                if cove_result.status == "revised":
+                    cove_revised += 1
+
         try:
             decision = promotion_decision(claim, statement)
         except ClaimRuleError as exc:  # pragma: no cover - defensive
@@ -578,6 +615,9 @@ def run(
             # Hooks that raised on a claim. Recorded so a run can tell "this claim had
             # no verdict" from "this claim could not be analysed at all".
             "afev_errors": len(afev_errors),
+            # B1: how many claims CoVe wanted to revise. Zero when it is off, which is
+            # the honest reading of "not run" as distinct from "found nothing".
+            "cove_revised": cove_revised,
             # B12: how many claims abstained, and the threshold that decided it.
             "abstained": len(abstain_rows),
             "abstain_threshold": abstain_threshold,

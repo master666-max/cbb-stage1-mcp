@@ -295,6 +295,82 @@ def cmd_supersede(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cli_llm(work):
+    """Best-effort LLM for the annotation command.
+
+    Returns None when no model is configured, which the agreement module reports as
+    ``unavailable`` — never a fabricated kappa.
+    """
+    import os
+
+    from cbb_stage1.config import Config
+    from cbb_stage1.model_gateway import build_model_gateway
+
+    try:
+        config = Config(
+            book_id="agreement",
+            book_path=Path("book.txt"),
+            out_dir=Path("artifacts/box"),
+            work_dir=Path(work),
+            provider=os.environ.get("CBB_LLM_PROVIDER") or "mock",
+            model=os.environ.get("CBB_LLM_MODEL") or "model",
+        )
+        gateway = build_model_gateway(config, Path(work))
+    except Exception:  # noqa: BLE001 - no model is a normal state here
+        return None
+    return gateway
+
+
+def cmd_annotator_agreement(args: argparse.Namespace) -> int:
+    """B11: have several labellers judge the same claims independently.
+
+    Reports Cohen's kappa, which subtracts chance agreement — raw agreement is inflated
+    by class imbalance and looks fine while carrying no information.
+    """
+    import json
+    from pathlib import Path
+
+    from cbb_stage1.qc.agreement import independent_label
+
+    work = Path(args.work)
+    claims: dict[str, str] = {}
+    evidence: dict[str, list[str]] = {}
+    table = work / "assemble" / "claims.jsonl"
+    if table.exists():
+        for line in table.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            row = json.loads(line)
+            claim_id = str(row.get("claim_id") or "")
+            if not claim_id:
+                continue
+            claims[claim_id] = str(row.get("normalized_claim") or "")
+            evidence[claim_id] = [
+                str(item.get("quote") or "")
+                for item in row.get("evidence") or ()
+                if str(item.get("quote") or "").strip()
+            ]
+
+    report = independent_label(
+        list(claims),
+        llm=_cli_llm(work) if not args.no_model else None,
+        claims=claims,
+        evidence_by_claim=evidence,
+        annotators=tuple(args.annotator or ("A", "B", "C")),
+        sample_size=args.sample,
+    )
+    if args.json:
+        print(json.dumps(report.as_dict(), ensure_ascii=False, indent=2))
+    else:
+        print(f"status={report.status} annotators={report.annotators} "
+              f"sample={len(report.sample)} kappa={report.kappa}")
+        if report.kappa is None and report.status == "measured":
+            print("  note: kappa is undefined for this sample (one label only, or empty)")
+        for claim_id in report.disagreements:
+            print(f"  disagreement: {claim_id}")
+    return 0
+
+
 def cmd_conflict_resolve(args: argparse.Namespace) -> int:
     """Record a human decision about one conflict. The conflict row is annotated,
     never deleted; ``superseded`` additionally retcons the two assertions."""
@@ -541,6 +617,17 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--at", help="ISO timestamp (default: now)")
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_supersede)
+
+    p = sub.add_parser(
+        "annotator-agreement",
+        help="B11: independent labelling + Cohen's kappa (soft gate)",
+    )
+    p.add_argument("--work", required=True)
+    p.add_argument("--sample", type=int, default=20)
+    p.add_argument("--annotator", action="append", default=None)
+    p.add_argument("--no-model", action="store_true")
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(func=cmd_annotator_agreement)
 
     p = sub.add_parser("conflict-resolve", help="record a human decision about a conflict")
     p.add_argument("--work", required=True)

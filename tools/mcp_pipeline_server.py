@@ -360,6 +360,24 @@ TOOLS = [
         },
     },
     {
+        "name": "cbb_annotator_agreement",
+        "description": (
+            "B11: have several labellers judge the same claims independently and report "
+            "Cohen's kappa. A soft gate: a small sample makes kappa noisy, so it is "
+            "reported, never enforced."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "required": ["work"],
+            "properties": {
+                "work": {"type": "string"},
+                "sample": {"type": "integer"},
+                "annotator": {"type": "array", "items": {"type": "string"}},
+                "json": {"type": "boolean"},
+            },
+        },
+    },
+    {
         "name": "cbb_conflict_resolve",
         "description": (
             "Record a human decision about one conflict. All five declared choices are "
@@ -1266,6 +1284,7 @@ def cbb_capabilities(args: dict[str, Any]) -> dict[str, Any]:
         "lexicon-approve": "cbb_lexicon_approve",
         "supersede": "cbb_supersede",
         "conflict-resolve": "cbb_conflict_resolve",
+        "annotator-agreement": "cbb_annotator_agreement",
         "quarantine-adjudicate": "cbb_quarantine_adjudicate",
         "model-reply": "cbb_reply",
         "model-call": "cbb_model_call",
@@ -1356,6 +1375,47 @@ def cbb_supersede(args: dict[str, Any]) -> dict[str, Any]:
         )
     except (KeyError, ValueError) as exc:
         return {"error": str(exc)}
+
+
+def cbb_annotator_agreement(args: dict[str, Any]) -> dict[str, Any]:
+    """B11: independent labelling + Cohen's kappa.
+
+    Runs in-process through ``qc.agreement``; the MCP surface owns the capability rather
+    than delegating it to the CLI.
+    """
+    import json as _json
+    from pathlib import Path as _Path
+
+    from cbb_stage1.qc.agreement import independent_label
+
+    work = _Path(str(args["work"]))
+    claims: dict[str, str] = {}
+    evidence: dict[str, list[str]] = {}
+    table = work / "assemble" / "claims.jsonl"
+    if table.exists():
+        for line in table.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            row = _json.loads(line)
+            claim_id = str(row.get("claim_id") or "")
+            if not claim_id:
+                continue
+            claims[claim_id] = str(row.get("normalized_claim") or "")
+            evidence[claim_id] = [
+                str(item.get("quote") or "")
+                for item in row.get("evidence") or ()
+                if str(item.get("quote") or "").strip()
+            ]
+
+    report = independent_label(
+        list(claims),
+        llm=None,
+        claims=claims,
+        evidence_by_claim=evidence,
+        annotators=tuple(args.get("annotator") or ("A", "B", "C")),
+        sample_size=int(args.get("sample") or 20),
+    )
+    return {"ok": True, "data": report.as_dict()}
 
 
 def cbb_conflict_resolve(args: dict[str, Any]) -> dict[str, Any]:
@@ -1591,6 +1651,7 @@ _DISPATCH = {
     "cbb_lexicon_approve": cbb_lexicon_approve,
     "cbb_supersede": cbb_supersede,
     "cbb_conflict_resolve": cbb_conflict_resolve,
+    "cbb_annotator_agreement": cbb_annotator_agreement,
     "cbb_quarantine_adjudicate": cbb_quarantine_adjudicate,
     "cbb_field_coverage": cbb_field_coverage,
     "cbb_call_wiring": cbb_call_wiring,
