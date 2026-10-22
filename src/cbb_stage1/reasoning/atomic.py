@@ -162,11 +162,23 @@ def afev_verify(
     facts: tuple[AtomicFact, ...] = ()
     context: str | None = None
     rounds = 0
+    previous_texts: tuple[str, ...] | None = None
+    stopped_on_repeat = False
     for round_no in range(1, max_rounds + 1):
         rounds = round_no
         texts = _clean_texts(list(llm.decompose(claim, context)))
         if not texts:
             raise AtomicRuleError("decompose() returned no atomic facts (no fabrication fallback)")
+        # A round that decomposes to exactly the previous round's facts has learned
+        # nothing: same facts, same evidence, therefore the same verdicts. Verifying them
+        # again and then running round 3 is pure cost. Measured on a 5000-character run:
+        # every claim whose evidence simply does not cover it burned all three rounds on
+        # identical facts, which is a third of the AFEV requests per claim.
+        current_texts = tuple(texts)
+        if previous_texts is not None and current_texts == previous_texts:
+            stopped_on_repeat = True
+            break
+        previous_texts = current_texts
         shaped: list[AtomicFact] = []
         for index, text in enumerate(texts):
             fact_evidence = tuple(retrieve(text)) if retrieve is not None else base_evidence
@@ -181,6 +193,14 @@ def afev_verify(
         if round_no == max_rounds:
             break
 
+    notes: list[str] = []
+    if stopped_on_repeat:
+        # Named so a reader can tell "stopped because nothing changed" apart from
+        # "ran out of rounds" — those are different findings about the evidence.
+        notes.append("stopped_on_repeated_decomposition")
+    if context:
+        notes.append("unverifiable_after_max_rounds")
+
     return AFEVResult(
         claim=claim,
         book_id=book_id,
@@ -188,5 +208,5 @@ def afev_verify(
         verdict=aggregate_atomic_facts(facts),
         rounds=rounds,
         degenerate=False,
-        notes=("unverifiable_after_max_rounds",) if context else (),
+        notes=tuple(notes),
     )

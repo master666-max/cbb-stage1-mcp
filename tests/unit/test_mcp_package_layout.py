@@ -166,6 +166,46 @@ def test_every_planned_source_exists(builder) -> None:
     assert missing == [], f"plan names missing sources: {missing}"
 
 
+def test_every_sibling_file_the_server_loads_ships_with_it(builder) -> None:
+    """The invariant that would have caught both defects, instead of naming files.
+
+    Two files the server reaches for by `__file__`-relative path were absent from the
+    package: `schemas/` (lint and field-coverage had nothing to read) and
+    `_mcp_run_shim.py` (every `cbb_start_run` died at spawn). Each was found by running the
+    install rather than by a test, because the tests named the files they expected instead
+    of deriving them from what the server actually loads.
+
+    So: read the references out of the server and require the plan to carry them.
+    """
+    import re
+
+    text = SERVER.read_text(encoding="utf-8")
+    referenced = set(re.findall(r"""parent\s*/\s*["']([^"']+\.py)["']""", text))
+    assert referenced, "no sibling references found; the extraction pattern is wrong"
+    destinations = {dest for _src, dest in builder.package_plan(PROJECT)}
+    missing = sorted(name for name in referenced if name not in destinations)
+    assert missing == [], (
+        f"the server loads these by relative path but the package does not ship them: {missing}"
+    )
+
+
+def test_the_run_shim_ships(builder) -> None:
+    """`cbb_start_run` spawns through this file; without it every run dies at spawn.
+
+    Measured: "can't open file '<install>\\\\_mcp_run_shim.py': [Errno 2] No such file or
+    directory", and `cbb_start_run` returned "pipeline did not report its pid within 15.0s".
+    """
+    destinations = {dest for _src, dest in builder.package_plan(PROJECT)}
+    assert "_mcp_run_shim.py" in destinations
+
+
+def test_the_gate_scripts_the_server_loads_in_process_ship(builder) -> None:
+    """`_load_tool_module` resolves these next to the server."""
+    destinations = {dest for _src, dest in builder.package_plan(PROJECT)}
+    for name in ("field_coverage.py", "call_wiring.py"):
+        assert name in destinations, f"{name} is loaded in-process and must ship"
+
+
 def test_the_built_package_really_contains_schemas() -> None:
     """The end-to-end claim, checked against the artifact when it has been built."""
     dist = PROJECT / "dist" / "cbb-mcp"

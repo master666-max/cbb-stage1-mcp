@@ -59,6 +59,12 @@ def package_plan(project: Path) -> list[tuple[Path, str]]:
     return [
         (project / "tools" / "field_coverage.py", "field_coverage.py"),
         (project / "tools" / "call_wiring.py", "call_wiring.py"),
+        # `cbb_start_run` spawns the pipeline through this shim, resolved next to the
+        # server. It was left out, so every run died with
+        # `can't open file '<install>\_mcp_run_shim.py'` and `cbb_start_run` reported
+        # "pipeline did not report its pid within 15.0s" — the same class of defect as the
+        # missing schemas, and found the same way: by running the install.
+        (project / "tools" / "_mcp_run_shim.py", "_mcp_run_shim.py"),
         # renamed on the way in: the host reads ``server.py``
         (project / "tools" / "mcp_pipeline_server.py", "server.py"),
         (project / "src" / "cbb_stage1", "cbb_stage1"),

@@ -197,6 +197,27 @@ TOOLS = [
                     "description": "engine provider (ai_reader/openie/lpmm); 'mock' would not extract",
                 },
                 "model": {"type": "string", "default": "session"},
+                "transport": {
+                    "type": "string",
+                    "enum": ["host", "http"],
+                    "default": "host",
+                    "description": (
+                        "who serves the main reasoning: 'host' = the driving agent answers "
+                        "one queue request at a time (needs an agent turn per call); "
+                        "'http' = a real endpoint answers, so the run finishes unattended"
+                    ),
+                },
+                "llm_base_url": {
+                    "type": "string",
+                    "description": (
+                        "required when transport='http': OpenAI-compatible base URL, e.g. "
+                        "http://127.0.0.1:8080/v1"
+                    ),
+                },
+                "llm_model": {
+                    "type": "string",
+                    "description": "model id for the http transport; recorded as the session label",
+                },
                 "max_concurrency": {"type": "integer", "default": 2},
                 "uq_head_checkpoint": {
                     "type": "string",
@@ -688,6 +709,56 @@ def _tool_result(payload: dict[str, Any]) -> dict[str, Any]:
 # ── tools ──────────────────────────────────────────────────────────────────
 
 
+#: How the main reasoning is served.
+#:
+#: `host` is the previous behaviour: the driving agent answers, through
+#: `work/plan/host-model`. `http` hands the same job to a real endpoint, so a long run
+#: does not need an agent turn per request.
+#:
+#: Measured on a 5000-character chapter, the host transport cost 294,543 characters of
+#: prompt pulled into the driving agent's context to emit 28,710 characters of answers
+#: (median 7), the same chapter echoed 28 times, two 900-second timeouts, and five hours
+#: without finishing. The pipeline already supports the http path — `model_gateway`
+#: reads `CBB_LLM_BASE_URL` and `preflight` refuses a run with neither — so the only
+#: thing missing was letting the caller choose.
+TRANSPORTS: tuple[str, ...] = ("host", "http")
+
+
+def _transport_settings(args: dict[str, Any]) -> tuple[dict[str, Any], dict[str, str]]:
+    """Return `(policy fields, child env)` for the requested transport.
+
+    Refuses rather than degrades: an `http` run with no endpoint would fall back to the
+    mock engine and produce a box that looks finished and contains nothing.
+    """
+    transport = str(args.get("transport") or "host").strip().lower()
+    if transport not in TRANSPORTS:
+        raise ValueError(
+            f"unknown transport {transport!r}; expected one of {list(TRANSPORTS)}"
+        )
+
+    if transport == "host":
+        return (
+            {"transport": "host", "host_queue": "1"},
+            {"CBB_HOST_MODEL_QUEUE": "1"},
+        )
+
+    base_url = str(args.get("llm_base_url") or "").strip()
+    if not base_url:
+        raise ValueError(
+            "transport='http' needs llm_base_url; without it the run would fall back to "
+            "the mock engine and extract nothing"
+        )
+    model = str(args.get("llm_model") or "").strip()
+    label = str(args.get("session_model_label") or "").strip() or model
+    env = {"CBB_LLM_BASE_URL": base_url}
+    if model:
+        env["CBB_LLM_MODEL"] = model
+    return (
+        {"transport": "http", "host_queue": "", "session_model_label": label},
+        env,
+    )
+
+
 def cbb_start_run(args: dict[str, Any]) -> dict[str, Any]:
     work = Path(str(args["work"]))
     out = Path(str(args["out"]))
@@ -744,13 +815,15 @@ def cbb_start_run(args: dict[str, Any]) -> dict[str, Any]:
         }
     forced = preflight["status"] == "BLOCKED"
 
-    # The run's main reasoning is serviced by this agent, over the host queue.
+    # Who serves the main reasoning is the caller's choice: the driving agent (host) or a
+    # real endpoint (http). Hard-coding it here is what made every long run need one agent
+    # turn per request; see TRANSPORTS for the measurement.
+    transport_policy, transport_env = _transport_settings(args)
     policy_path = work / "plan" / "model-policy.json"
     _write_json(
         policy_path,
         {
-            "transport": "host",
-            "host_queue": "1",
+            **transport_policy,
             "max_concurrency": int(args.get("max_concurrency") or 2),
             "max_tokens": int(args.get("max_tokens") or 4096),
             "timeout": int(args.get("timeout") or 180),
@@ -758,8 +831,12 @@ def cbb_start_run(args: dict[str, Any]) -> dict[str, Any]:
             # Who is serving the main reasoning. The host protocol does not expose
             # model identity, so the caller declares it; without it every call in
             # model-calls.jsonl reads "session" and the box cannot say which model
-            # produced it.
-            "session_model_label": str(args.get("session_model_label") or ""),
+            # produced it. The transport helper already filled it for an http run.
+            "session_model_label": str(
+                transport_policy.get("session_model_label")
+                or args.get("session_model_label")
+                or ""
+            ),
             "judge_base_url": str(args.get("judge_base_url") or ""),
             "judge_model": str(args.get("judge_model") or ""),
             "nli_base_url": str(args.get("nli_base_url") or ""),
@@ -770,7 +847,11 @@ def cbb_start_run(args: dict[str, Any]) -> dict[str, Any]:
 
     env = dict(os.environ)
     env["PYTHONUTF8"] = "1"
-    env["CBB_HOST_MODEL_QUEUE"] = "1"
+    # The http path must NOT inherit a host-queue marker from this server's own
+    # environment, or the run would go back to waiting on an agent that is not there.
+    if "CBB_HOST_MODEL_QUEUE" not in transport_env:
+        env.pop("CBB_HOST_MODEL_QUEUE", None)
+    env.update(transport_env)
     argv = [
         sys.executable,
         # ``-u`` matters: the log is a redirected file, so Python block-buffers
