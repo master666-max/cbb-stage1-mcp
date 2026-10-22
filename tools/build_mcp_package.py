@@ -97,7 +97,7 @@ def build(project: Path = PROJECT, dist: Path = DIST) -> None:
                 "command": "python",
                 "args": ["-u", str(dist / "server.py")],
                 "description": (
-                    "CBB 抽取段 v6.1 主驱动：起跑/服务模型请求/建箱/跑门/人裁（21 个工具）"
+                    "CBB 抽取段 v6.1 主驱动：起跑/服务模型请求/建箱/跑门/人裁（22 个工具）"
                 ),
             }
         }
@@ -147,14 +147,45 @@ def build(project: Path = PROJECT, dist: Path = DIST) -> None:
     cbb__cbb_conflict_resolve cbb__cbb_quarantine_adjudicate
     cbb__cbb_model_call       cbb__cbb_model_stats     cbb__cbb_model_drain
     cbb__cbb_model_policy     cbb__cbb_doctor          cbb__cbb_capabilities
-    cbb__cbb_smoke
+    cbb__cbb_smoke            cbb__cbb_annotator_agreement
     ```
 
-    共 **21 个**。**这就是全部管辖面**——不需要 shell、不需要 CLI、不需要 mcporter。
+    共 **22 个**。**这就是全部管辖面**——不需要 shell、不需要 CLI、不需要 mcporter。
+
+    ## ⚠️ 先决定：谁来做推理
+
+    `cbb_start_run` 的 `transport` 参数决定**谁扮演模型**。这个选择比其它任何参数都重要。
+
+    | transport | 谁作答 | 代价 |
+    |---|---|---|
+    | `host`（默认） | **驱动 agent 自己**，一个请求一个回合 | 每个请求都要 agent 往返一次 |
+    | `http` | **一个真实端点**，run 无人值守跑完 | 需要一个 OpenAI 兼容端点 |
+
+    **实测（5000 汉字文段，host 传输）**：约 170 个请求；驱动 agent 的上下文被灌入
+    **294,543 字符**的 prompt，只为产出 **28,710 字符**的答案（中位数 **7 字符**）；
+    其中 73% 是同一章原文重复 28 遍；两次撞上 **900 秒**队列超时；**5 小时没跑完**。
+
+    **host 适合**：短文本、想逐条盯着看、要人工判断每一步。
+    **http 适合**：长文、要跑完、要可复现 —— 推荐。
+
+    ```
+    cbb_start_run(
+      transport      = "http",
+      llm_base_url   = "http://127.0.0.1:8080/v1",   # 必填
+      llm_model      = "<端点上的模型 id>",           # 记为 session_model_label
+      ... 其余照常
+    )
+    ```
+
+    `transport="http"` 但没给 `llm_base_url` 会**直接拒绝启动**，不会悄悄退回 mock 引擎
+    ——那会跑出一个「看起来完成、其实什么都没有」的箱。
+
+    host 传输下若你的回合超过 **900 秒**，那次调用会超时重试；可用环境变量
+    `CBB_HOST_MODEL_TIMEOUT` 放宽（默认 900）。
 
     ## 依赖
 
-    宿主 Python 需要这些（`pip install` 一次即可）：
+    宿主要 Python **>= 3.12**，并装这些（`pip install` 一次即可）：
 
     ```
     pydantic>=2.7  httpx>=0.27  ebooklib>=0.18  beautifulsoup4>=4.12
