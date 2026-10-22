@@ -152,36 +152,76 @@ def build(project: Path = PROJECT, dist: Path = DIST) -> None:
 
     共 **22 个**。**这就是全部管辖面**——不需要 shell、不需要 CLI、不需要 mcporter。
 
-    ## ⚠️ 先决定：谁来做推理
-
-    `cbb_start_run` 的 `transport` 参数决定**谁扮演模型**。这个选择比其它任何参数都重要。
-
-    | transport | 谁作答 | 代价 |
-    |---|---|---|
-    | `host`（默认） | **驱动 agent 自己**，一个请求一个回合 | 每个请求都要 agent 往返一次 |
-    | `http` | **一个真实端点**，run 无人值守跑完 | 需要一个 OpenAI 兼容端点 |
-
-    **实测（5000 汉字文段，host 传输）**：约 170 个请求；驱动 agent 的上下文被灌入
-    **294,543 字符**的 prompt，只为产出 **28,710 字符**的答案（中位数 **7 字符**）；
-    其中 73% 是同一章原文重复 28 遍；两次撞上 **900 秒**队列超时；**5 小时没跑完**。
-
-    **host 适合**：短文本、想逐条盯着看、要人工判断每一步。
-    **http 适合**：长文、要跑完、要可复现 —— 推荐。
+    ## 架构：这个包挂靠在 agent 上
 
     ```
-    cbb_start_run(
-      transport      = "http",
-      llm_base_url   = "http://127.0.0.1:8080/v1",   # 必填
-      llm_model      = "<端点上的模型 id>",           # 记为 session_model_label
-      ... 其余照常
-    )
+    MCP 工具 ──> cbb_stage1 库 ──> host 队列 ──> agent 会话的**子代理**作答
+                                            └─> （可选）http 端点作答
+    ```
+
+    **主推理 = agent 会话的子代理。** 这是本包的本命形态：不需要额外服务，不需要
+    OpenAI 兼容端点，用 agent 自己的推理能力。`cbb_start_run` 起的那个进程把请求写进
+    `work/plan/host-model/requests/`，你的 agent（或它的子代理）读走、作答、写回
+    `responses/`。
+
+    **建议用子代理池消费队列**，不要用主会话串行手答。实测（5000 汉字文段）：38 个请求
+    如果逐个走主会话回合，会把 **294,543 字符**的 prompt 拉进同一个上下文，而答案只有
+    **28,710 字符**（中位数 **7 字符**），其中 73% 是同一章原文重复 28 遍，还会撞上
+    900 秒队列超时。队列是并发的，`max_concurrency` 就是给这个用的。
+
+    ### transport 怎么选
+
+    | transport | 谁作答 | 什么时候用 |
+    |---|---|---|
+    | `host`（默认） | agent 会话的**子代理** | **默认用这个**。挂靠 agent，零外部依赖 |
+    | `http` | 一个 OpenAI 兼容端点 | 想让 run 完全脱离 agent 独立跑，或有个更强/更便宜的模型 |
+
+    ```
+    # 默认：子代理作答，什么都不用传
+    cbb_start_run(book=..., book_id=..., work=..., out=...)
+
+    # 可选：端点作答
+    cbb_start_run(..., transport="http",
+                  llm_base_url="http://127.0.0.1:8080/v1",
+                  llm_model="<模型 id>")
     ```
 
     `transport="http"` 但没给 `llm_base_url` 会**直接拒绝启动**，不会悄悄退回 mock 引擎
     ——那会跑出一个「看起来完成、其实什么都没有」的箱。
 
-    host 传输下若你的回合超过 **900 秒**，那次调用会超时重试；可用环境变量
-    `CBB_HOST_MODEL_TIMEOUT` 放宽（默认 900）。
+    ### 消费队列的两个工具
+
+    * `cbb_next_requests` —— 按 run 取未答请求（**推荐**，它按 `responses/` 过滤）
+    * `cbb_model_drain` —— 只看队列目录，不需要 run_id
+
+    作答：`cbb_reply(request_id=..., text=..., usage={...})`。**带上 `usage`**，否则
+    `cost_usd` 与 `token_budget` 量不出来。
+
+    host 传输下单次调用有 **900 秒**上限（`CBB_HOST_MODEL_TIMEOUT` 可调）。子代理作答快，
+    通常碰不到；碰到了说明该并发派工了。
+
+    ## 特殊模型要本地端点（LM Studio）
+
+    主推理走 agent，**但下面这些不走**。它们要么需要 token 级信号，要么必须用不同的模型，
+    agent 会话给不了：
+
+    | 用途 | 需要什么 | 不给会怎样 |
+    |---|---|---|
+    | **embedding** | 本地 OpenAI 兼容端点（LM Studio 等），`embedding_base_url` | **derive 阶段直接死**（RAPTOR、dedupe KNN 都要向量） |
+    | **B3 SEPs / B4 白盒** | 端点要能返回 **token logprobs** | 报 `unavailable`；算法在，信号没有 |
+    | **B4 judge** | 一个**不同于抽取模型**的模型 | D4「模型异档」不可满足，judge 不可用 |
+    | **D11 时序 NLI** | 专用 NLI 模型（`nli_base_url`/`nli_model`） | 退回主模型判，verify 记 `unknown` |
+
+    **最少要给 embedding 一个端点**，否则跑不到建箱。LM Studio 例：
+
+    ```
+    lms server start
+    lms load text-embedding-qwen3-embedding-0.6b@f16
+    # 端点在 http://127.0.0.1:8080/v1
+    cbb_start_run(..., embedding_base_url="http://127.0.0.1:8080/v1")
+    ```
+
+    预检 `cbb_doctor` 会把这些逐项报出来（READY/BLOCKED/N/A），**先跑一次再起跑**。
 
     ## 依赖
 

@@ -202,9 +202,10 @@ TOOLS = [
                     "enum": ["host", "http"],
                     "default": "host",
                     "description": (
-                        "who serves the main reasoning: 'host' = the driving agent answers "
-                        "one queue request at a time (needs an agent turn per call); "
-                        "'http' = a real endpoint answers, so the run finishes unattended"
+                        "who serves the main reasoning: 'host' (default) = the agent's own "
+                        "subagents answer through work/plan/host-model, the native form for "
+                        "this package; 'http' = a real endpoint answers, for runs that "
+                        "should finish without the agent"
                     ),
                 },
                 "llm_base_url": {
@@ -711,16 +712,16 @@ def _tool_result(payload: dict[str, Any]) -> dict[str, Any]:
 
 #: How the main reasoning is served.
 #:
-#: `host` is the previous behaviour: the driving agent answers, through
-#: `work/plan/host-model`. `http` hands the same job to a real endpoint, so a long run
-#: does not need an agent turn per request.
+#: `host` (default) — the agent's **subagents** answer through `work/plan/host-model`.
+#: This is the package's native form: it hangs off an agent and needs no extra service.
+#: `http` — a real endpoint answers, for runs that should finish without the agent.
 #:
-#: Measured on a 5000-character chapter, the host transport cost 294,543 characters of
-#: prompt pulled into the driving agent's context to emit 28,710 characters of answers
-#: (median 7), the same chapter echoed 28 times, two 900-second timeouts, and five hours
-#: without finishing. The pipeline already supports the http path — `model_gateway`
-#: reads `CBB_LLM_BASE_URL` and `preflight` refuses a run with neither — so the only
-#: thing missing was letting the caller choose.
+#: Do not read the measurement below as a property of `host`. It is what happens when the
+#: queue is drained *synchronously by the top-level session*: on a 5000-character chapter,
+#: 294,543 characters of prompt for 28,710 characters of answers (median 7), the same
+#: chapter echoed 28 times, two 900-second timeouts, five hours unfinished. A subagent
+#: pool draining the same queue concurrently does not pay that — the queue is built for
+#: it (`max_concurrency`).
 TRANSPORTS: tuple[str, ...] = ("host", "http")
 
 
@@ -815,9 +816,9 @@ def cbb_start_run(args: dict[str, Any]) -> dict[str, Any]:
         }
     forced = preflight["status"] == "BLOCKED"
 
-    # Who serves the main reasoning is the caller's choice: the driving agent (host) or a
-    # real endpoint (http). Hard-coding it here is what made every long run need one agent
-    # turn per request; see TRANSPORTS for the measurement.
+    # Who serves the main reasoning is the caller's choice: the agent's subagents
+    # (host, the default and the native form for a package that hangs off an
+    # agent) or a real endpoint (http). See TRANSPORTS.
     transport_policy, transport_env = _transport_settings(args)
     policy_path = work / "plan" / "model-policy.json"
     _write_json(
