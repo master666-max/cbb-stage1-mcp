@@ -77,9 +77,18 @@ class HostQueueClient:
         )
 
     def drain(self) -> list[dict[str, Any]]:
-        """Return pending requests for the host agent (sorted, oldest first)."""
+        """Return **unanswered** requests for the host agent (sorted, oldest first).
+
+        "Pending" means no response file exists yet. This used to list every request
+        regardless: on a real work directory it reported 16 pending of which 14 had already
+        been answered, so an agent following it would answer them twice. `cbb_next_requests`
+        compared against `responses/` and was right; the two tools disagreed about the same
+        queue, which is worse than either being wrong alone.
+        """
         rows: list[dict[str, Any]] = []
         for path in sorted((self.root / REQUESTS).glob("*.json")):
+            if (self.root / RESPONSES / path.name).exists():
+                continue
             try:
                 row = json.loads(path.read_text(encoding="utf-8"))
             except (OSError, json.JSONDecodeError):
