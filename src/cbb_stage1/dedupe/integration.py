@@ -48,6 +48,7 @@ from cbb_stage1.dedupe.describe import (
     dedupe_fragments,
     describe,
 )
+from cbb_stage1.orchestrator.parallel import stage_workers
 from cbb_stage1.dedupe.semhash import (
     DEFAULT_EMBEDDING_SIMILARITY_THRESHOLD,
     DEFAULT_SIMILARITY_THRESHOLD,
@@ -195,6 +196,7 @@ def _merge_canonical(
     merger: ClusterMerger | None = None,
     embedder: Any | None = None,
     embedding_threshold: float = DEFAULT_EMBEDDING_SIMILARITY_THRESHOLD,
+    merge_workers: int = 1,
 ) -> tuple[dict[str, dict[str, Any]], ClusterDedupeResult]:
     """KNN-cluster the entity names; merge evidence into each canonical name."""
     surfaces = sorted(data)
@@ -204,6 +206,7 @@ def _merge_canonical(
         top_k=top_k,
         merger=merger,
         embedder=embedder,
+        merge_workers=merge_workers,
     )
     merged: dict[str, dict[str, Any]] = {}
     for cluster, canonical in zip(result.clusters, result.selected):
@@ -374,6 +377,8 @@ def run(
 
     candidates = _read_jsonl(work_root / "resolve" / "entity_candidates.jsonl")
     data = _collect_entity_data(outputs, candidates)
+    # How many cluster merges to ask for at once is this run's decision, not the library's:
+    # the worker count is the same one the other postprocess stages use.
     merged, name_result = _merge_canonical(
         data,
         threshold=knn_threshold,
@@ -381,6 +386,7 @@ def run(
         merger=merger,
         embedder=embedder,
         embedding_threshold=knn_embedding_threshold,
+        merge_workers=stage_workers(upstream, len(data)),
     )
     # The clustering result already carries its candidate pairs: reusing them
     # avoids a second embedding round-trip for the same surfaces.
@@ -401,6 +407,43 @@ def run(
         and bool(getattr(config, "description_synthesis", False))
     ):
         synthesizer = MapReduceSynthesizer(aux_llm.generate)
+    # A14: batch entity merging, opt-in because it costs one LLM call per 80 candidates. The fan-out filter
+    # inside `batch_merge` runs first, so the model is only asked about names that survived it — that order
+    # is the source's, and it is what stops transitive closure absorbing generic terms.
+    batch_merge_map: dict[str, Any] | None = None
+    if aux_llm is not None and bool(upstream.get("batch_merge")):
+        from cbb_stage1.dedupe.batch_merge import batch_merge as _batch_merge
+
+        candidates = [
+            {
+                "name": canonical,
+                "type": item.get("type") or "concept",
+                "desc": "",
+                "aliases": sorted(item.get("aliases") or ()),
+                "freq": len(item.get("units") or ()),
+            }
+            for canonical, item in merged.items()
+        ]
+        try:
+            merged_result = _batch_merge(candidates, aux_llm.generate)
+        except Exception as exc:  # noqa: BLE001 - a failed merge must not lose the stage
+            warnings.append(f"batch_merge failed: {type(exc).__name__}: {exc}")
+            merged_result = None
+        if merged_result is not None:
+            batch_merge_map = merged_result
+            _write_jsonl(
+                work_root / "assemble" / "merge_groups.jsonl",
+                merged_result["groups"],
+            )
+            counts["batch_merge_groups"] = len(merged_result["groups"])
+            counts["batch_merge_candidates"] = merged_result["candidates"]
+            counts["batch_merge_batches"] = merged_result["batches"]
+            counts["batch_merge_generic"] = len(merged_result["generic"])
+            if merged_result["failures"]:
+                warnings.extend(
+                    f"batch_merge {item}" for item in merged_result["failures"][:3]
+                )
+
     for canonical in sorted(merged):
         item = merged[canonical]
         observations = tuple(Observation(text=text) for text in item["descriptions"])
@@ -462,6 +505,9 @@ def run(
             },
         },
         "descriptions": description_result,
+        # A14's merge decisions, so a reader can audit which names the model grouped and which the fan-out
+        # filter removed. `None` when the pass was not requested.
+        "batch_merge": batch_merge_map,
     }
 
     cards_path = work_root / "assemble" / "entity_cards.jsonl"

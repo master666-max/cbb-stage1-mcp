@@ -46,6 +46,7 @@ from typing import Any, Callable, Iterable, Sequence
 from .files import atomic_write_json, read_json
 
 __all__ = [
+    "parse_stage_names",
     "WIRING_CONTRACT",
     "StageSpec",
     "DEFAULT_STAGES",
@@ -63,24 +64,129 @@ WIRING_RELATIVE_PATH = "plan/wiring.json"
 
 @dataclass(frozen=True)
 class StageSpec:
-    """One integration stage: a work-layer name plus the module exposing ``run``."""
+    """One integration stage: where it lives **and what it promises**.
+
+    A bare `(name, module)` pair answers "what runs" but not "may I skip it" or "what proves it ran".
+    The three added fields are what a gate needs without importing eight modules:
+
+    * ``required_outputs`` — work-relative tables that must exist after the stage ran;
+    * ``required`` — whether a box is valid without this stage (a box without `validate` is not);
+    * ``criterion`` — the one sentence a reader needs to judge "did it work";
+    * ``toggle`` — for an optional stage, the config field that turns it off. Required for optional
+      stages: a switch nobody can find is not a switch.
+    """
 
     name: str
     module: str
+    required_outputs: tuple[str, ...] = ()
+    required: bool = True
+    criterion: str = ""
+    toggle: str = ""
 
 
 #: Fixed call order (task P0-A). Later stages may read earlier stages' tables
 #: through ``upstream`` and the work directory.
 DEFAULT_STAGES: tuple[StageSpec, ...] = (
-    StageSpec("resolve", "cbb_stage1.resolve.integration"),
-    StageSpec("assemble", "cbb_stage1.assemble.integration"),
-    StageSpec("claims", "cbb_stage1.claims.integration"),
-    StageSpec("cues", "cbb_stage1.cues.integration"),
-    StageSpec("temporal", "cbb_stage1.temporal.integration"),
-    StageSpec("validate", "cbb_stage1.validate.integration"),
-    StageSpec("dedupe", "cbb_stage1.dedupe.integration"),
-    StageSpec("derive", "cbb_stage1.derive.integration"),
+    StageSpec(
+        "resolve",
+        "cbb_stage1.resolve.integration",
+        required_outputs=("resolve/entity_candidates.jsonl",),
+        required=True,
+        criterion="every accepted entity has a content-addressed id; merges are logged",
+    ),
+    StageSpec(
+        "assemble",
+        "cbb_stage1.assemble.integration",
+        required_outputs=("assemble/assertions.jsonl",),
+        required=True,
+        criterion="every assertion has a registered predicate, typed roles and a claim layer",
+    ),
+    StageSpec(
+        "claims",
+        "cbb_stage1.claims.integration",
+        required_outputs=("assemble/claims.jsonl",),
+        required=False,
+        criterion="every claim carries an AVeriTeC verdict and the evidence behind it",
+        toggle="claims_enabled",
+    ),
+    StageSpec(
+        "cues",
+        "cbb_stage1.cues.integration",
+        required_outputs=("assemble/cues.jsonl",),
+        required=False,
+        criterion="cue state transitions are recorded with the unit that caused them",
+        toggle="cues_enabled",
+    ),
+    StageSpec(
+        "temporal",
+        "cbb_stage1.temporal.integration",
+        required_outputs=("assemble/timeline.jsonl",),
+        required=False,
+        criterion="every constraint is either verified or explicitly unknown",
+        toggle="temporal_enabled",
+    ),
+    StageSpec(
+        "validate",
+        "cbb_stage1.validate.integration",
+        required_outputs=("audit/conflicts.jsonl",),
+        required=True,
+        criterion="conflicts, quarantine and decisions are written; nothing is silently dropped",
+    ),
+    StageSpec(
+        "dedupe",
+        "cbb_stage1.dedupe.integration",
+        required_outputs=("dedupe/clusters.jsonl",),
+        required=False,
+        criterion="duplicate assertions are merged through a logged, reversible merge",
+        toggle="description_synthesis",
+    ),
+    StageSpec(
+        "derive",
+        "cbb_stage1.derive.integration",
+        required_outputs=("derive/hypotheses.jsonl",),
+        required=False,
+        criterion="derived rows say they are derived and carry no fabricated confidence",
+        toggle="summary_synthesis",
+    ),
 )
+
+
+#: Optional stage -> the config field that switches it off. Derived from the specs so the two cannot
+#: disagree; a test pins the equality.
+OPTIONAL_STAGE_TOGGLES: dict[str, str] = {
+    spec.name: spec.toggle for spec in DEFAULT_STAGES if spec.toggle
+}
+
+
+def stage_registry() -> dict[str, StageSpec]:
+    """name -> spec, for callers that look a stage up by name.
+
+    One registry rather than a second list: `DEFAULT_STAGES` is the source and this is a view of it.
+    """
+    return {spec.name: spec for spec in DEFAULT_STAGES}
+
+
+def parse_stage_names(names: str | None) -> tuple[StageSpec, ...]:
+    """Turn ``"resolve,derive"`` into the matching :class:`StageSpec` tuple.
+
+    The result follows :data:`DEFAULT_STAGES` order, not the order given: later stages read tables
+    earlier stages write, so honouring a reversed list would run `derive` against stale input.
+
+    Unknown names raise instead of being skipped. A typo that quietly dropped `validate` would
+    produce a box of unvalidated assertions, which is exactly the failure this project keeps finding.
+    Duplicates collapse; an empty selection raises, because "run nothing" is almost never meant.
+    """
+    wanted = [piece.strip() for piece in str(names or "").split(",") if piece.strip()]
+    if not wanted:
+        raise ValueError("no stage names given")
+    known = {spec.name: spec for spec in DEFAULT_STAGES}
+    unknown = [name for name in wanted if name not in known]
+    if unknown:
+        raise ValueError(
+            f"unknown stage name(s): {unknown}; known are {sorted(known)}"
+        )
+    selected = set(wanted)
+    return tuple(spec for spec in DEFAULT_STAGES if spec.name in selected)
 
 
 class PostprocessError(RuntimeError):

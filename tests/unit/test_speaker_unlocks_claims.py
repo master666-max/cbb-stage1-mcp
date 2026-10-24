@@ -86,7 +86,7 @@ def test_extractor_speaker_reaches_the_normalized_evidence() -> None:
         relationships=[
             RelationshipFact(
                 person_a="黑之魔王",
-                person_b="贝塔心叶",
+                person_b="言万心叶",
                 relation_type="敌对",
                 evidence=quote,
                 evidence_speaker="黑之魔王",
@@ -115,7 +115,7 @@ def test_missing_speaker_keeps_the_assertion_as_a_fact() -> None:
         relationships=[
             RelationshipFact(
                 person_a="黑之魔王",
-                person_b="贝塔心叶",
+                person_b="言万心叶",
                 relation_type="敌对",
                 evidence=quote,
             )

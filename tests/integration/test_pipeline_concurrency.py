@@ -82,7 +82,7 @@ def _write_book(tmp_path: Path) -> Path:
     chapters = []
     for index in range(1, CHAPTER_COUNT + 1):
         chapters.append(
-            f"# 第{index}章\n\n贝塔心叶与黑之魔王在第{index}处相遇，"
+            f"# 第{index}章\n\n言万心叶与黑之魔王在第{index}处相遇，"
             f"她的影子是苍蓝色的。这是第{index}章用于并发测试的正文。"
         )
     book = tmp_path / "book.txt"
@@ -189,7 +189,7 @@ def test_small_batch_stays_serial(tmp_path):
     cfg = _make_config(tmp_path, max_workers=4)
     cfg.book_path = tmp_path / "book2.txt"
     cfg.book_path.write_text(
-        "# 第1章\n\n贝塔心叶登场。\n\n# 第2章\n\n黑之魔王登场。\n", encoding="utf-8"
+        "# 第1章\n\n言万心叶登场。\n\n# 第2章\n\n黑之魔王登场。\n", encoding="utf-8"
     )
     engine = TrackingEngine(delay=0.02)
     result = run_pipeline(cfg, chapters="all", engine=engine)

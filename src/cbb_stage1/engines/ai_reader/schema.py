@@ -9,7 +9,7 @@ does not emit (the source patch behaviour).
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -179,6 +179,24 @@ class WorldDeclaration(BaseModel):
     confidence: str = "medium"  # high / medium / low
 
 
+class CueFact(BaseModel):
+    """One foreshadowing cue as the extractor reports it.
+
+    Deliberately thin: the extractor sees a setup and an expectation, not a state machine. `payoff`
+    is filled only when the chapter already pays the cue off; the state machine in
+    `cues/state.py` decides what happens to a cue over time.
+    """
+
+    kind: Literal["object", "line", "anomaly", "prophecy", "relationship"] = "object"
+    subject: str = Field(min_length=1, description="伏笔的载体：物品/说法/异常/预言/关系的原文称呼")
+    setup: str = Field(min_length=1, description="埋线处的原文逐字片段（必须能在本章原文中找到）")
+    expected: str = Field(default="", description="预期后面如何回收")
+    payoff: str = Field(default="", description="本章已回收则填回收处原文逐字片段；未回收留空")
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+    evidence: str = Field(default="", description=EVIDENCE_DESCRIPTION)
+    evidence_speaker: str = Field(default="", description=SPEAKER_DESCRIPTION)
+
+
 class ChapterFact(BaseModel):
     chapter_id: int
     novel_id: str
@@ -191,6 +209,9 @@ class ChapterFact(BaseModel):
     events: list[EventFact] = Field(default_factory=list)
     new_concepts: list[ConceptFact] = Field(default_factory=list)
     world_declarations: list[WorldDeclaration] = Field(default_factory=list)
+    #: Foreshadowing. Not in `_REQUIRED_NON_EMPTY_FIELDS`: a chapter may genuinely plant nothing,
+    #: and demanding one would push the model to invent a promise the text never made.
+    cues: list[CueFact] = Field(default_factory=list)
 
 
 class EntityDictEntry(BaseModel):

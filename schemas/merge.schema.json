@@ -4,17 +4,72 @@
   "title": "Merge log",
   "type": "object",
   "additionalProperties": false,
-  "required": ["merge_id", "book_id", "kind", "from", "to", "decided_by", "confidence", "evidence", "at", "reversible"],
+  "required": [
+    "merge_id",
+    "book_id",
+    "kind",
+    "from",
+    "to",
+    "decided_by",
+    "confidence",
+    "evidence",
+    "at",
+    "reversible"
+  ],
   "properties": {
-    "merge_id": {"type": "string", "pattern": "^mg:[0-9a-f]{16,64}$"},
-    "book_id": {"type": "string", "pattern": "^[a-z0-9_-]+$"},
-    "kind": {"enum": ["alias", "coref", "type_unify"]},
-    "from": {"type": "array", "items": {"type": "string", "pattern": "^e:"}, "minItems": 1},
-    "to": {"type": "string", "pattern": "^e:"},
-    "decided_by": {"enum": ["rule", "llm", "human", "panel"]},
-    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
-    "evidence": {"type": "array"},
-    "at": {"type": "string", "format": "date-time"},
-    "reversible": {"const": true}
+    "merge_id": {
+      "type": "string",
+      "pattern": "^mg:[0-9a-f]{16,64}$"
+    },
+    "book_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]+$"
+    },
+    "kind": {
+      "enum": [
+        "alias",
+        "coref",
+        "type_unify"
+      ]
+    },
+    "from": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^e:"
+      },
+      "minItems": 1
+    },
+    "to": {
+      "type": "string",
+      "pattern": "^e:"
+    },
+    "decided_by": {
+      "enum": [
+        "rule",
+        "llm",
+        "human",
+        "panel"
+      ]
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "evidence": {
+      "type": "array"
+    },
+    "at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "reversible": {
+      "const": true
+    },
+    "undo": {
+      "type": "object",
+      "description": "Reversal payload (kind/from/to and restored aliases). `reversible: true` without this is a claim rather than a reversible merge log."
+    }
   }
 }

@@ -189,7 +189,14 @@ def build_connections(
 
     Deterministic shell of the B09 ``connections`` stage: pair weight is the
     number of units in which two canonical names both appear. Pairs below
-    ``min_weight`` are dropped (source default: 2).
+    ``min_weight`` are dropped.
+
+    **source default: 1; this stage uses 2.** The deviation is deliberate — a pair that co-occurs
+    in a single unit is usually one scene, and an edge for every one of those makes the connection
+    graph noise. It is written down here rather than left implicit because this comment used to
+    claim "source default: 2", which was simply wrong: it made a deviation read as fidelity.
+    ``test_documented_defaults.py`` binds this sentence to the parameter so the two cannot diverge
+    again without a test going red.
     """
     pair_counts: Counter[tuple[str, str]] = Counter()
     pair_units: dict[tuple[str, str], list[str]] = {}

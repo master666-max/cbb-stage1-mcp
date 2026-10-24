@@ -34,6 +34,12 @@ __all__ = [
     "request_interrupt",
     "check_interrupt",
     "clear_interrupt",
+    "pause",
+    "resume",
+    "set_control_dir",
+    "check_pause",
+    "safe_point_action",
+    "control_state",
     "set_interactive_mode",
     "gate_unsafe_step",
 ]
@@ -279,10 +285,13 @@ def reset_progress() -> None:
 # =============================================================================
 
 _interrupt_requested = False
+#: A5: pause is *not* interrupt. Pause stops at a safe point and stays resumable; interrupt abandons the
+#: run. Conflating them is why a run could only ever be stopped by killing it.
+_pause_requested = False
 
 
 def request_interrupt() -> None:
-    """Request the pipeline to stop at its next safe point."""
+    """Request the pipeline to stop at its next safe point, for good."""
     global _interrupt_requested
     _interrupt_requested = True
     print("! Interrupt requested - will stop at next safe point")
@@ -294,9 +303,86 @@ def check_interrupt() -> bool:
 
 
 def clear_interrupt() -> None:
-    """Clear the interrupt flag after handling."""
+    """Clear the interrupt flag after handling. Does not touch the pause flag."""
     global _interrupt_requested
     _interrupt_requested = False
+
+
+#: Where the cross-process control files live; set by the pipeline at start.
+_control_dir: Path | None = None
+PAUSE_FLAG_NAME = "pause.flag"
+
+
+def set_control_dir(path: str | Path | None) -> None:
+    """Tell the control layer where a run's flag files live.
+
+    Needed because the pipeline is detached: a Python flag set by another process would never reach it,
+    so pause is mirrored to a file. Called once at run start.
+    """
+    global _control_dir
+    _control_dir = Path(path) if path else None
+
+
+def _pause_flag_path() -> Path | None:
+    return (_control_dir / PAUSE_FLAG_NAME) if _control_dir is not None else None
+
+
+def pause() -> None:
+    """Ask the pipeline to stop at its next safe point **and stay resumable**.
+
+    Mirrored to a file so a detached pipeline — the normal case — actually sees it.
+    """
+    global _pause_requested
+    _pause_requested = True
+    flag = _pause_flag_path()
+    if flag is not None:
+        try:
+            flag.parent.mkdir(parents=True, exist_ok=True)
+            flag.write_text("paused", encoding="utf-8")
+        except OSError:  # pragma: no cover - a failed mirror leaves the in-process flag usable
+            pass
+
+
+def resume() -> None:
+    """Release a pause. Does not touch the interrupt flag."""
+    global _pause_requested
+    _pause_requested = False
+    flag = _pause_flag_path()
+    if flag is not None:
+        try:
+            flag.unlink(missing_ok=True)
+        except OSError:  # pragma: no cover
+            pass
+
+
+def check_pause() -> bool:
+    """True while a pause is in effect, from this process **or** from the flag file.
+
+    The file is what makes a pause work for a detached run: the operator's process is not the
+    pipeline's process.
+    """
+    if _pause_requested:
+        return True
+    flag = _pause_flag_path()
+    return bool(flag is not None and flag.exists())
+
+
+def safe_point_action() -> str:
+    """What a caller should do at a safe point: ``continue`` / ``wait`` / ``stop``.
+
+    Interrupt wins: a run that is both paused and interrupted must stop, or it waits for a release that
+    is never coming.
+    """
+    if check_interrupt():
+        return "stop"
+    if check_pause():
+        return "wait"
+    return "continue"
+
+
+def control_state() -> dict[str, bool]:
+    """The two flags, for a status endpoint that has to report why a run is not moving."""
+    return {"paused": _pause_requested, "interrupt": _interrupt_requested}
 
 
 # =============================================================================

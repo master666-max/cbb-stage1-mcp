@@ -8,8 +8,10 @@ stage-1 runtime has no embedding model by default, so this module builds the
 * levels 2..N = recursive agglomeration of the previous level's clusters;
 * ``parent_cluster_id`` points from a child to its parent (top-level rows have
   ``None``); ``child_cluster_ids`` on parents lists the children;
-* ``text`` is always ``None`` here -- a later synthesis pass writes summaries;
-  no prose is invented.
+* ``text`` carries the cluster summary when a ``summariser`` is supplied, and is ``None``
+  otherwise (the row then says ``no-summary``). No prose is invented: a row without a summary
+  says so. The recursive loop only exists when a summariser is passed — the next level clusters
+  the summaries, not the member bags.
 
 Similarity:
 
@@ -138,6 +140,7 @@ def build_raptor_clusters(
     unit_texts: Mapping[str, str],
     *,
     embedder: Any | None = None,
+    summariser: Any | None = None,
     max_levels: int = 4,
     structural_threshold: float = _DEFAULT_STRUCTURAL_THRESHOLD,
     embedding_threshold: float = _DEFAULT_EMBEDDING_THRESHOLD,
@@ -151,6 +154,10 @@ def build_raptor_clusters(
         unit_texts: unit_id -> text (missing text => empty token bag).
         embedder: Optional callable/``.encode`` embedding backend. When given,
             unit texts are embedded once and clustering uses cosine similarity.
+        summariser: Optional ``(texts) -> str``. When given, each cluster is summarised and the
+            **next level clusters on those summaries** — the recursive loop of the paper. Without it
+            ``text`` stays ``None`` and the rows say ``no-summary``; they never imply a summary that
+            was not written.
         max_levels: Maximum tree height (level 1 leaves; ``>=1``).
         structural_threshold: Jaccard threshold for the structural fallback.
         embedding_threshold: Cosine threshold for the embedding path.
@@ -162,7 +169,8 @@ def build_raptor_clusters(
     Returns:
         Flat rows sorted by ``(level, cluster_id)``. Rows with
         ``level > 1`` carry ``child_cluster_ids``; children carry
-        ``parent_cluster_id``. ``text`` is always ``None``.
+        ``parent_cluster_id``. ``text`` carries the cluster summary when a ``summariser`` was
+        supplied, and is ``None`` otherwise.
 
     Raises:
         ValueError: non-positive ``max_levels`` or a malformed embedder result.
@@ -215,12 +223,29 @@ def build_raptor_clusters(
                 # No higher-level merge happened: the previous level is the root.
                 break
             level_rows = _emit_level_rows(
-                book_id, volume, level, groups, items, method, produced_by
+                book_id,
+                volume,
+                level,
+                groups,
+                items,
+                method,
+                produced_by,
+                summariser=summariser,
+                unit_texts=unit_texts,
             )
             rows.extend(level_rows)
             if len(groups) <= 1 or level >= int(max_levels):
                 break
-            items = _next_level_items(groups, items, embedder is not None)
+            # The feedback loop: the next level clusters the summaries just written. Falling back to
+            # the member bags keeps a partially-summarised run valid.
+            summaries = {
+                tuple(row["member_units"]): row["text"]
+                for row in level_rows
+                if row.get("text")
+            }
+            items = _next_level_items(
+                groups, items, embedder is not None, summaries=summaries
+            )
             level += 1
 
     rows.sort(key=lambda row: (int(row["level"]), str(row["cluster_id"])))
@@ -250,11 +275,30 @@ def _emit_level_rows(
     items: list[_LevelItem],
     method: str,
     produced_by: str,
+    summariser: Any | None = None,
+    unit_texts: Mapping[str, str] | None = None,
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
+    texts = unit_texts or {}
     for group in groups:
         member_units = sorted({uid for index in group for uid in items[index].member_units})
         cluster_id = ids.raptor_cluster_id(book_id, volume, level, member_units)
+        text: str | None = None
+        row_producer = produced_by
+        if summariser is not None:
+            member_texts = [texts.get(uid, "") for uid in member_units]
+            member_texts = [item for item in member_texts if item.strip()]
+            if member_texts:
+                try:
+                    summary = summariser(member_texts)
+                except Exception:  # noqa: BLE001 - a failed summary must not drop the cluster
+                    summary = ""
+                if isinstance(summary, str) and summary.strip():
+                    text = summary.strip()
+                    row_producer = f"{produced_by}+summarised"
+        if text is None:
+            # Say it: a row without text is unsummarised, not a summary that happens to be empty.
+            row_producer = f"{produced_by}+no-summary"
         rows.append(
             {
                 "cluster_id": cluster_id,
@@ -264,9 +308,9 @@ def _emit_level_rows(
                 "parent_cluster_id": None,
                 "child_cluster_ids": [],
                 "member_units": member_units,
-                "text": None,
+                "text": text,
                 "method": method,
-                "produced_by": produced_by,
+                "produced_by": row_producer,
             }
         )
     return rows
@@ -276,14 +320,31 @@ def _next_level_items(
     groups: list[list[int]],
     items: list[_LevelItem],
     embedding: bool,
+    *,
+    summaries: Mapping[str, str] | None = None,
 ) -> list[_LevelItem]:
+    """Build the next level's items, preferring each group's **summary** over its member bags.
+
+    This is what makes the tree recursive rather than merely hierarchical: the paper summarises a
+    cluster, embeds the summary, and clusters again on the summaries. When no summary exists for a
+    group the union of member bags is used, so a partially-summarised run stays valid.
+    """
+    by_summary = dict(summaries or {})
     next_items: list[_LevelItem] = []
     for group in groups:
         members = [items[index] for index in group]
         member_units = sorted({uid for item in members for uid in item.member_units})
+        # The group's summary is keyed by the cluster id built from these members; `cluster_ids` is
+        # supplied by the caller in the same order as `groups`.
+        summary_text = ""
+        if by_summary:
+            summary_text = by_summary.get(tuple(member_units), "")
         bag: set[str] = set()
-        for item in members:
-            bag |= item.bag
+        if summary_text:
+            bag = _bag(summary_text)
+        else:
+            for item in members:
+                bag |= item.bag
         vector = _centroid(item.vector or [] for item in members) if embedding else None
         next_items.append(_LevelItem(member_units, bag, vector))
     return next_items

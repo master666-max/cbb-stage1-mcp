@@ -49,11 +49,62 @@ METHOD = "maslow_guided"
 #: Closed set, translated from F01's five levels. Free text here would be unverifiable.
 MASLOW_LEVELS = ("生理", "安全", "归属", "尊重", "自我实现")
 
+#: The paper's sixteen Reiss desires (D15). Each rolls up to one Maslow level; the sub-level is what
+#: makes a label informative, because "复仇" and "安宁" are different motives that the coarse level
+#: cannot tell apart. Order is the paper's, not alphabetical, so a reader comparing with the source can
+#: check them off.
+REISS_DESIRES: tuple[str, ...] = (
+    "权力", "独立", "好奇", "接纳",
+    "秩序", "荣誉", "理想", "社交",
+    "家庭", "地位", "复仇", "浪漫",
+    "食欲", "身体活动", "安宁", "储蓄",
+)
+
+#: desire -> the Maslow level it belongs to. Every desire must appear: one without a parent would be
+#: unreachable through the rollup, which is what a consumer reads.
+_DESIRE_TO_LEVEL: dict[str, str] = {
+    "权力": "尊重",
+    "独立": "尊重",
+    "好奇": "自我实现",
+    "接纳": "归属",
+    "秩序": "安全",
+    "荣誉": "尊重",
+    "理想": "自我实现",
+    "社交": "归属",
+    "家庭": "归属",
+    "地位": "尊重",
+    "复仇": "安全",
+    "浪漫": "归属",
+    "食欲": "生理",
+    "身体活动": "生理",
+    "安宁": "安全",
+    "储蓄": "安全",
+}
+
+#: Every label the closed set accepts, coarse levels included so a model may answer at either depth.
+MOTIVE_LABELS: tuple[str, ...] = MASLOW_LEVELS + REISS_DESIRES
+
+
+def needs_level_for(label: str) -> str | None:
+    """Roll a label up to its Maslow level (``None`` when the label is not in the taxonomy)."""
+    text = str(label or "").strip()
+    if text in MASLOW_LEVELS:
+        return text
+    return _DESIRE_TO_LEVEL.get(text)
+
 PROMPT_TEMPLATE = """\
 下面是一个小说人物的若干「行为」，每条都带原文引文。请为每条行为判断：
 
 1. 直接动机（一句话，说明他为什么这样做）；
-2. 这个动机对应马斯洛需求的哪一层，**只能从这五个里选**：{levels}。
+2. 这个动机对应哪一类欲望，**只能从下面这张表里选**（16 类欲望，或它们的 5 个上位层级）：
+
+   生理：食欲 / 身体活动
+   安全：秩序 / 复仇 / 安宁 / 储蓄
+   归属：接纳 / 社交 / 家庭 / 浪漫
+   尊重：权力 / 独立 / 荣誉 / 地位
+   自我实现：好奇 / 理想
+
+   能具体就填具体那类（例如「复仇」），实在分不清再填上位层级（例如「安全」）。
 
 规则：
 - 只依据给出的引文判断，不要补充原文没有的信息；
@@ -73,7 +124,7 @@ def prompt_for_character(character: str, behaviors: Sequence[str]) -> str:
         f"- index {index}: 「{behavior}」" for index, behavior in enumerate(behaviors)
     )
     return PROMPT_TEMPLATE.format(
-        levels=" / ".join(MASLOW_LEVELS),
+        levels=" / ".join(MOTIVE_LABELS),
         character=character,
         behaviors=lines or "（无）",
     )
@@ -109,18 +160,24 @@ def parse_chain(raw: Any, behaviors: Sequence[str]) -> list[dict[str, Any]]:
             continue
         if index < 0 or index >= len(behaviors) or index in seen:
             continue
-        level = str(item.get("needs_level") or "").strip()
-        if level not in MASLOW_LEVELS:
+        label = str(item.get("needs_level") or "").strip()
+        if label not in MOTIVE_LABELS:
+            # An unknown label is dropped rather than coerced: a near-miss means the model did not
+            # follow the taxonomy, and rounding it would hide that.
             continue
         motive = str(item.get("motive") or "").strip()
         if not motive:
             continue
+        level = needs_level_for(label) or ""
         seen.add(index)
         links.append(
             {
                 "behavior": behaviors[index],
                 "motive": motive,
+                # `needs_level` stays the rolled-up Maslow level so older readers keep working; the
+                # precise label is `desire` when the model answered at the sub-level.
                 "needs_level": level,
+                "desire": label if label in REISS_DESIRES else None,
             }
         )
     return links
@@ -140,7 +197,7 @@ def _character_behaviors(
     predicate was always true; and even had it been filled, the two sides live in
     different key spaces — this function keys on the ``主体``/``施事`` role, which holds
     entity IDs (``e:spk13:concept:...``), while ``assertion.speaker.name`` holds display
-    names (``阿尔法``). A character who only ever speaks never becomes a key here, because
+    names (``露娜``). A character who only ever speaks never becomes a key here, because
     speaking is not a subject role, so "exclude pure speakers" already holds by
     construction rather than by filtering.
     """

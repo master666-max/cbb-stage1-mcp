@@ -273,7 +273,7 @@ def test_parse_minimal_epub(tmp_path):
         [
             (
                 "第一章 心叶",
-                "<div><p>我的名字叫贝塔心叶。他人的思想不由分说地在脑中响起，"
+                "<div><p>我的名字叫言万心叶。他人的思想不由分说地在脑中响起，"
                 "他人的内心是毒药。</p><p>我抬起头，看着窗外的雨，房间里很安静，"
                 "只有钟表走动的声音。我知道自己不该听见这些声音，可它们从来没有"
                 "停过。</p><p>于是我决定不把这件事告诉任何人。</p></div>",
@@ -296,8 +296,8 @@ def test_parse_minimal_epub(tmp_path):
     assert book.chapters[0].href == "ch1.xhtml"
     first = book.chapters[0].content
     # nested div/p text must not be duplicated by the parser
-    assert first.count("我的名字叫贝塔心叶") == 1
-    assert "贝塔心叶" in first and "苍蓝色" in book.chapters[1].content
+    assert first.count("我的名字叫言万心叶") == 1
+    assert "言万心叶" in first and "苍蓝色" in book.chapters[1].content
     # deterministic content hash
     assert parse_epub(epub_path).content_hash == book.content_hash
 
@@ -505,7 +505,7 @@ def test_pipeline_runs_end_to_end_on_epub(tmp_path):
         [
             (
                 "第一章 心叶",
-                "<p>我的名字叫贝塔心叶。他人的思想不由分说地在脑中响起，"
+                "<p>我的名字叫言万心叶。他人的思想不由分说地在脑中响起，"
                 "他人的内心是毒药。</p><p>我抬起头，看着窗外的雨，房间里很安静，"
                 "只有钟表走动的声音。我知道自己不该听见这些声音，可它们从来没有停过。"
                 "于是我决定不把这件事告诉任何人。</p>",

@@ -13,7 +13,7 @@ from cbb_stage1.orchestrator.pipeline import run_pipeline
 
 class FixtureEngine(Engine):
     def extract(self, unit_id, text, card, known_entities):
-        start = text.find("贝塔心叶")
+        start = text.find("言万心叶")
         if start < 0:
             start = 0
         quote = text[start : start + 4]
@@ -21,7 +21,7 @@ class FixtureEngine(Engine):
         return EngineOutput(
             unit_id=unit_id,
             entities=[
-                Entity(book_id="t", type="person", canonical_name="贝塔心叶", tier="canonical"),
+                Entity(book_id="t", type="person", canonical_name="言万心叶", tier="canonical"),
                 Entity(book_id="t", type="person", canonical_name="黑之魔王", tier="major"),
             ],
             assertions=[
@@ -29,7 +29,7 @@ class FixtureEngine(Engine):
                     book_id="t",
                     predicate="亲属",
                     library="关系",
-                    roles={"施事": "贝塔心叶", "受事": "黑之魔王"},
+                    roles={"施事": "言万心叶", "受事": "黑之魔王"},
                     evidence=[ev],
                     confidence=0.9,
                     confidence_method="evidence_span",
@@ -39,7 +39,7 @@ class FixtureEngine(Engine):
                     book_id="t",
                     predicate="性质",
                     library="设定",
-                    roles={"主体": "贝塔心叶", "值": {"literal": "她来过"}},
+                    roles={"主体": "言万心叶", "值": {"literal": "她来过"}},
                     claim_layer="statement",
                     speaker={"kind": "narrator", "name": "叙述者"},
                     evidence=[ev],
@@ -53,7 +53,7 @@ class FixtureEngine(Engine):
 
 def test_pipeline_to_box_with_fixture_engine(tmp_path: Path):
     book = tmp_path / "book.txt"
-    book.write_text("# 第1章 起\n\n贝塔心叶走近黑之魔王。\n", encoding="utf-8")
+    book.write_text("# 第1章 起\n\n言万心叶走近黑之魔王。\n", encoding="utf-8")
     cfg = Config(
         book_id="t",
         book_path=book,
@@ -73,6 +73,21 @@ def test_pipeline_to_box_with_fixture_engine(tmp_path: Path):
         for line in (tmp_path / "box" / "knowledge" / "claims.jsonl").read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
-    assert claims and all(c["verdict"] == "insufficient_evidence" for c in claims)
+    # Claims used to be uniformly `insufficient_evidence` only because nothing produced a
+    # `claims_qa` entry. Now the local producer grounds what it can, so the contract is what
+    # matters: a closed verdict set, and `supported` backed by real answers.
+    assert claims, "the box has no claims"
+    assert {c["verdict"] for c in claims} <= {
+        "supported",
+        "refuted",
+        "insufficient_evidence",
+        "unanswerable",
+    }
+    for claim in claims:
+        if claim["verdict"] == "supported":
+            assert claim["questions"], "a supported claim must carry its questions"
+            assert any(q.get("answers") for q in claim["questions"]), (
+                f"claim {claim['claim_id']} is supported with no answers behind it"
+            )
     coverage = json.loads((tmp_path / "box" / "qc" / "coverage.json").read_text(encoding="utf-8"))
     assert len(coverage["cells"]) == 60

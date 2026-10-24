@@ -160,6 +160,11 @@ def test_invariant_message_carries_top_quarantine_reason(tmp_path):
     import shutil
 
     shutil.copytree(complete, broken)
+    # The published box is read-only (E9), so the deliberate corruption has to lift the marking first.
+    # This is what the module is for: immutability you cannot lift is a bug, not a safeguard.
+    from cbb_stage1.box.immutability import make_writable
+
+    make_writable(broken)
     for relative in ("knowledge/events.jsonl", "knowledge/assertions.jsonl"):
         (broken / relative).write_text("", encoding="utf-8")
 

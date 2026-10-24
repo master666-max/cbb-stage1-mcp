@@ -5,21 +5,47 @@
   "description": "Behaviour -> direct motive -> need, for one character. The need is a CLOSED set (Maslow's five levels) because F01-MotiveBench measured 93% inter-annotator agreement on that taxonomy; free-text 'deep need' cannot be validated. §5.20 requires an evidence chain and calls this an editorial recommendation, not a fact.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["chain_id", "book_id", "character", "links", "method"],
+  "required": [
+    "chain_id",
+    "book_id",
+    "character",
+    "links",
+    "method"
+  ],
   "properties": {
-    "chain_id": {"type": "string", "pattern": "^mc:[0-9a-f]{16,64}$"},
-    "book_id": {"type": "string", "pattern": "^[a-z0-9_-]+$"},
-    "character": {"type": "string", "minLength": 1},
+    "chain_id": {
+      "type": "string",
+      "pattern": "^mc:[0-9a-f]{16,64}$"
+    },
+    "book_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]+$"
+    },
+    "character": {
+      "type": "string",
+      "minLength": 1
+    },
     "links": {
       "type": "array",
       "minItems": 1,
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["behavior", "motive", "needs_level", "evidence"],
+        "required": [
+          "behavior",
+          "motive",
+          "needs_level",
+          "evidence"
+        ],
         "properties": {
-          "behavior": {"type": "string", "minLength": 1},
-          "motive": {"type": "string", "minLength": 1},
+          "behavior": {
+            "type": "string",
+            "minLength": 1
+          },
+          "motive": {
+            "type": "string",
+            "minLength": 1
+          },
           "needs_level": {
             "enum": [
               "生理",
@@ -35,20 +61,73 @@
             "items": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["unit_id", "quote"],
+              "required": [
+                "unit_id",
+                "quote"
+              ],
               "properties": {
-                "unit_id": {"type": "string", "pattern": "^u:"},
-                "quote": {"type": "string", "minLength": 1},
-                "quote_sha256": {"type": ["string", "null"]}
+                "unit_id": {
+                  "type": "string",
+                  "pattern": "^u:"
+                },
+                "quote": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "quote_sha256": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
               }
             }
+          },
+          "desire": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "权力",
+              "独立",
+              "好奇",
+              "接纳",
+              "秩序",
+              "荣誉",
+              "理想",
+              "社交",
+              "家庭",
+              "地位",
+              "复仇",
+              "浪漫",
+              "食欲",
+              "身体活动",
+              "安宁",
+              "储蓄",
+              null
+            ],
+            "description": "D15 sub-level: one of the paper's sixteen Reiss desires, or null when the model answered at the coarse Maslow level. `needs_level` stays the rolled-up value so older readers work."
           }
         }
       }
     },
-    "method": {"enum": ["maslow_guided"]},
-    "note": {"type": "string"},
-    "produced_by": {"type": "string"},
-    "created_at": {"type": ["string", "null"]}
+    "method": {
+      "enum": [
+        "maslow_guided"
+      ]
+    },
+    "note": {
+      "type": "string"
+    },
+    "produced_by": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
   }
 }

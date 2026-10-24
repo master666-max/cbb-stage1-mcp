@@ -56,12 +56,46 @@ class NliResult:
 NliImpl = Callable[..., Any]
 
 
-def question_for(kind: str, left_id: str, right_id: str) -> str:
-    """The fixed Question per constraint kind (keeps prompts comparable)."""
+#: How much event text may enter one question. Events can carry a paragraph; the prompt must stay
+#: bounded, and a truncated summary is enough to judge order.
+_MAX_EVENT_CHARS = 240
+
+#: Said instead of the text when the caller has none. An id-only question must *look* unanswerable:
+#: a model that believes it can answer will guess, and a guess is recorded as a verdict.
+_NO_TEXT = "（未提供事件正文，无法判断）"
+
+
+def _event_label(node_id: str, text: str | None) -> str:
+    """``ev:aaa「正文」`` — the id stays so a verdict can be traced back."""
+    cleaned = " ".join(str(text or "").split())
+    if not cleaned:
+        return f"{node_id} {_NO_TEXT}"
+    if len(cleaned) > _MAX_EVENT_CHARS:
+        cleaned = cleaned[:_MAX_EVENT_CHARS].rstrip() + "…"
+    return f"{node_id}「{cleaned}」"
+
+
+def question_for(
+    kind: str,
+    left_id: str,
+    right_id: str,
+    *,
+    left_text: str | None = None,
+    right_text: str | None = None,
+) -> str:
+    """The fixed Question per constraint kind (keeps prompts comparable).
+
+    The event text goes in with the id. Without it the model is asked to order two opaque strings,
+    which it cannot do — the paper's premise is document context plus hypothesis, and both were
+    missing (D11). The template wording is unchanged, so prompts stay comparable across runs.
+    """
     template = DEFAULT_QUESTION_BY_KIND.get(kind)
     if template is None:
         raise ValueError("未知时序约束 kind：%r（闭集 %s）" % (kind, tuple(DEFAULT_QUESTION_BY_KIND)))
-    return template.format(left=left_id, right=right_id)
+    return template.format(
+        left=_event_label(left_id, left_text),
+        right=_event_label(right_id, right_text),
+    )
 
 
 def normalize_result(raw: Any, *, question: str, verifier: str | None = None,
@@ -93,8 +127,40 @@ def nli_pairwise(left: Any, right: Any, question: str, *, impl: NliImpl | None =
     right_id = _node_id(right)
     if impl is None:
         return NliResult(question=question, result="unknown", verifier="disabled")
-    raw = impl(left_id, right_id, question)
+    # The injected callable's signature is unchanged, so existing verifiers keep working; what
+    # changes is what they can see. When the nodes carry text and the question does not already
+    # contain it, the events are appended — the question may be a filled template or any sentence,
+    # so this does not depend on matching a template.
+    left_text = _node_text(left)
+    right_text = _node_text(right)
+    enriched = question
+    if (left_text or right_text) and not (
+        (left_text and left_text in question) or (right_text and right_text in question)
+    ):
+        enriched = (
+            f"{question}\n"
+            f"事件A：{_event_label(left_id, left_text)}\n"
+            f"事件B：{_event_label(right_id, right_text)}"
+        )
+    raw = impl(left_id, right_id, enriched)
     return normalize_result(raw, question=question, verifier=verifier, model=model)
+
+
+def _node_text(node: Any) -> str:
+    """Best-effort event text from a node dict, model, or plain string."""
+    if isinstance(node, str):
+        return ""
+    if isinstance(node, Mapping):
+        for key in ("text", "summary", "description", "title"):
+            value = node.get(key)
+            if isinstance(value, str) and value.strip():
+                return value
+        return ""
+    for key in ("text", "summary", "description", "title"):
+        value = getattr(node, key, None)
+        if isinstance(value, str) and value.strip():
+            return value
+    return ""
 
 
 def _node_id(node: Any) -> str:

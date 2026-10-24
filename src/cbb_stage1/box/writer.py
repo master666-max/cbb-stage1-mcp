@@ -89,6 +89,7 @@ TABLE_SCHEMAS = {
     "derived/hypotheses.jsonl": "hypothesis.schema.json",
     "derived/research.jsonl": "research.schema.json",
     "audit/runs.jsonl": "run.schema.json",
+    "audit/decisions.jsonl": "decision.schema.json",
 }
 
 _LOCAL_TZ = timezone(timedelta(hours=8))
@@ -1120,6 +1121,39 @@ def _load_passthrough_derived(
 # ---------------------------------------------------------------------------
 
 
+def _box_tables_for_disclosure(root: Path) -> dict[str, list[dict[str, Any]]]:
+    """Rows of the tables the disclosure gate covers, for the F4 artifact.
+
+    Only tables that carry an anchor are included: a table with no unit metadata cannot be gated, and reporting it
+    as undatable would be noise rather than a finding.
+    """
+    names = (
+        "knowledge/assertions.jsonl",
+        "identity/entities.jsonl",
+        "identity/mentions.jsonl",
+        "knowledge/citations.jsonl",
+        "derived/summaries.jsonl",
+        "derived/entity_cards.jsonl",
+    )
+    tables: dict[str, list[dict[str, Any]]] = {}
+    for name in names:
+        path = root / name
+        if not path.is_file():
+            continue
+        rows: list[dict[str, Any]] = []
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                payload = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(payload, Mapping):
+                rows.append(dict(payload))
+        tables[name] = rows
+    return tables
+
+
 def _collect_box_hashes(root: Path) -> tuple[dict[str, str], str]:
     """Hash every box file except the manifest/CHECKSUMS/SPEC bootstrap trio."""
     files: dict[str, str] = {}
@@ -1553,6 +1587,113 @@ def _predicate_reconciliation(
     return counts
 
 
+_DECISION_CHOICES = ("left", "right", "merge", "disputed", "superseded")
+
+
+def _read_table_rows(path: Path) -> list[dict[str, Any]]:
+    """Rows of one box table, keyed for the replay diff by its first id-looking field.
+
+    The diff needs a stable key per row; box tables name theirs differently (`assertion_id`,
+    `entity_id`, `cue_id`, ...), so the first `*_id` string is used and the rest of the row is the
+    payload. A table with no id field is skipped rather than given a synthetic key, which would make
+    every row look changed on every rebuild.
+    """
+    if not path.is_file():
+        return []
+    rows: list[dict[str, Any]] = []
+    try:
+        from cbb_stage1.box import atomic
+
+        raw_rows = atomic.read_jsonl(path)
+    except Exception:  # noqa: BLE001 - a malformed parent table is a diff, not a crash
+        return []
+    for row in raw_rows:
+        if not isinstance(row, dict):
+            continue
+        key = _row_key(row)
+        if not key:
+            continue
+        rows.append({**row, "key": key})
+    return rows
+
+
+#: Fields that name the row itself. Tried in this order.
+_ROW_ID_FIELDS: tuple[str, ...] = (
+    "assertion_id",
+    "entity_id",
+    "mention_id",
+    "cue_id",
+    "event_id",
+    "claim_id",
+    "hypothesis_id",
+    "merge_id",
+    "conflict_id",
+    "decision_id",
+    "citation_id",
+    "narrative_id",
+    "edge_id",
+    "constraint_id",
+    "cluster_id",
+    "card_id",
+    "asset_id",
+    "summary_id",
+    "run_id",
+    "unit_id",
+    "book_id",
+)
+
+#: Fields that point at another record. Never a row's identity, whatever else is absent.
+_FOREIGN_ID_FIELDS: frozenset[str] = frozenset(
+    {"box_id", "book_id", "unit_id", "statement_assertion_id", "source_run"}
+)
+
+
+def _row_key(row: dict[str, Any]) -> str:
+    """The field naming this row, preferring a row-local id over a foreign reference."""
+    for name in _ROW_ID_FIELDS:
+        value = row.get(name)
+        if name in _FOREIGN_ID_FIELDS:
+            continue
+        if isinstance(value, str) and value:
+            return value
+    for name in sorted(row):
+        if name in _FOREIGN_ID_FIELDS:
+            continue
+        value = row[name]
+        if name.endswith("_id") and isinstance(value, str) and value:
+            return value
+    return ""
+
+
+def _load_work_decisions(work_root: Path) -> list[dict[str, Any]]:
+    """Read ``work/audit/decisions.jsonl``; a human decision must reach the box.
+
+    The table is written by ``validate/adjudication.py`` whenever a person resolves a conflict or
+    retcons an assertion, and it used to be replaced with ``[]`` here — so §5.17's "keep the reason"
+    never reached the artefact, while the work layer still held it.
+
+    A row that is not a decision (no ``decided_by``, unknown ``choice``) raises rather than being
+    dropped: silently discarding a person's ruling is the failure this loader exists to prevent.
+    """
+    from cbb_stage1.box import atomic
+
+    path = work_root / "audit" / "decisions.jsonl"
+    if not path.exists():
+        return []
+    rows: list[dict[str, Any]] = []
+    for index, row in enumerate(atomic.read_jsonl(path), 1):
+        decision_id = str(row.get("decision_id") or "")
+        if not decision_id:
+            raise BuildError(f"{path}:{index}: decision without decision_id")
+        choice = str(row.get("choice") or "")
+        if choice not in _DECISION_CHOICES:
+            raise BuildError(f"{path}:{index}: bad decision choice {choice!r}")
+        if not str(row.get("decided_by") or "").strip():
+            raise BuildError(f"{path}:{index}: decision without decided_by (not a human decision)")
+        rows.append(dict(row))
+    return sorted(rows, key=lambda item: str(item.get("decision_id") or ""))
+
+
 def build_box(
     work_root: str | Path,
     out: str | Path,
@@ -1561,6 +1702,9 @@ def build_box(
     box_id: str | None = None,
     created_at: str | None = None,
     parent: str | None = None,
+    #: E7: compare the built tables against the parent box and write `qc/replay.json`. Off by default
+    #: because it reads every table of the parent.
+    replay: bool = False,
     incremental: Mapping[str, Any] | None = None,
     lexicon: Lexicon | None = None,
     lexicon_dir: str | Path | None = None,
@@ -2188,7 +2332,10 @@ def build_box(
             "parent": parent,
             "changed_units": list(closure.changed_units),
             "dirty_entities": list(closure.entities),
-            "replay_base": None,
+            # The box this build was derived from is exactly what a replay has to point at. Writing
+            # None unconditionally meant the field could never carry a digest, so a rebuild could not
+            # answer "what changed since".
+            "replay_base": parent,
         }
     if changed_units or changed_entities:
         incremental_record.setdefault("parent", parent)
@@ -2286,7 +2433,7 @@ def build_box(
         "derived/research.jsonl": research_rows,
         "audit/runs.jsonl": runs,
         "audit/provenance.jsonl": provenance,
-        "audit/decisions.jsonl": [],
+        "audit/decisions.jsonl": _load_work_decisions(work_root),
         "audit/quarantine.jsonl": quarantine,
         "audit/conflicts.jsonl": conflicts,
         "sources/assets.jsonl": assets,
@@ -2558,6 +2705,62 @@ def build_box(
         qc_block = manifest.get("qc")
         if isinstance(qc_block, dict):
             qc_block["hard_gates"] = "pass" if gate_report.ok else "fail"
+        # C9: the per-volume snapshot record, written before the hash set is finalised so the record is
+        # inside the merkle root it describes. A snapshot that excludes itself cannot be verified.
+        try:
+            from cbb_stage1.box.snapshots import SNAPSHOT_PATH, snapshots_for_box
+
+            snapshot_files = {
+                relative: temp / relative
+                for relative in TABLE_SCHEMAS
+                if (temp / relative).is_file()
+            }
+            unit_volumes = {
+                str(unit.get("unit_id") or ""): unit.get("volume")
+                for unit in units
+                if unit.get("unit_id") and unit.get("volume") is not None
+            }
+            atomic.write_json(
+                temp / SNAPSHOT_PATH,
+                {
+                    "contract": "cbb-snapshots/1",
+                    "snapshots": snapshots_for_box(
+                        snapshot_files,
+                        unit_volumes=unit_volumes,
+                        created_at=resolved_created,
+                        box_id=resolved_box_id,
+                    ),
+                },
+            )
+        except Exception as exc:  # noqa: BLE001 - a snapshot record must not fail a built box
+            warnings.append(f"per-volume snapshots not written: {type(exc).__name__}: {exc}")
+
+        # F4: the disclosure artifact. Coverage says how much of the box can be date-gated, and the per-surface
+        # counts prove the gate runs on real rows. Written before the hash set is finalised so it is covered by
+        # the merkle root it belongs to.
+        try:
+            from cbb_stage1.disclose.report import REPORT_PATH, disclosure_report
+
+            from cbb_stage1.derive.summary_order import annotate_summaries
+
+            disclosure_tables = {}
+            for name, rows in _box_tables_for_disclosure(temp).items():
+                if not rows:
+                    continue
+                if name == "derived/summaries.jsonl" and any(
+                    "max_order" not in row for row in rows
+                ):
+                    # A box built before the field existed, or a fixture writing summaries directly: derive the
+                    # position here rather than reporting a derivable row as undatable.
+                    rows = annotate_summaries(rows)
+                disclosure_tables[name] = rows
+            atomic.write_json(
+                temp / REPORT_PATH,
+                disclosure_report(disclosure_tables, units=units),
+            )
+        except Exception as exc:  # noqa: BLE001 - a report must not fail a built box
+            warnings.append(f"disclosure report not written: {type(exc).__name__}: {exc}")
+
         # qc/report.json and qc/gates.jsonl are part of the hash set: recompute
         # the manifest hashes/CHECKSUMS over the measured report.
         _write_manifest_and_checksums(temp, manifest)
@@ -2573,6 +2776,47 @@ def build_box(
     except BaseException:
         atomic.remove_tree(temp)
         raise
+
+    # E9: "immutable" used to mean only "our own code refuses to overwrite it". Mark the published
+    # tree read-only and verify — after the publish, because a read-only temp tree cannot be renamed
+    # into place. A refused chmod does not fail the build: a box that exists is better than none, but
+    # it must not claim an immutability it does not have.
+    try:
+        from cbb_stage1.box.immutability import make_read_only
+
+        immutability = make_read_only(out)
+        if not immutability.verified:
+            warnings.append(
+                "box published but NOT verified read-only: "
+                f"{immutability.unmarked} entr(ies) still writable"
+                + (f"; errors: {immutability.errors[:3]}" if immutability.errors else "")
+            )
+    except Exception as exc:  # noqa: BLE001 - marking must never destroy a built box
+        warnings.append(f"box published but the read-only marking failed: {type(exc).__name__}: {exc}")
+
+    # E7: the replay answer, when asked for and when there is a parent to compare against.
+    if replay:
+        try:
+            from cbb_stage1.box.replay import replay_report
+
+            before: dict[str, list[dict[str, Any]]] = {}
+            after: dict[str, list[dict[str, Any]]] = {}
+            parent_root = None
+            if parent:
+                candidate = Path(parent)
+                parent_root = candidate if candidate.is_dir() else None
+            for relative in TABLE_SCHEMAS:
+                after[relative] = _read_table_rows(out / relative)
+                if parent_root is not None:
+                    before[relative] = _read_table_rows(parent_root / relative)
+            report = replay_report(base_id=parent, before=before, after=after)
+            atomic.write_json(out / "qc" / "replay.json", report.as_dict())
+            if report.status == "no_base":
+                warnings.append(
+                    "replay requested with no readable parent box: reported no_base, not a clean run"
+                )
+        except Exception as exc:  # noqa: BLE001 - a replay failure must not invalidate a built box
+            warnings.append(f"replay report failed: {type(exc).__name__}: {exc}")
 
     return BuildResult(
         box=out,

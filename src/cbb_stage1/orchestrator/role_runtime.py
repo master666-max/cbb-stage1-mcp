@@ -30,6 +30,7 @@ import json
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
+from cbb_stage1.agents.host_queue import HostQueueTimeout
 from cbb_stage1.ids import sha256_text
 
 from .files import atomic_write_json
@@ -272,6 +273,55 @@ def _normalize_llm_value(value: Any) -> str:
     return str(value)
 
 
+class VerifierCache:
+    """Memo of verdicts already decided, keyed by what determines the verdict.
+
+    ``(unit_id, start, end, quote_expected)`` — the unit text at that span plus the quote
+    being checked. Deliberately not the claim id: two claims citing the same sentence get the
+    same verdict, and asking twice is the cost this removes.
+
+    Counts hits and misses so a caller can report how much was saved instead of asserting it.
+    """
+
+    def __init__(self) -> None:
+        self._decided: dict[tuple[str, int | None, int | None, str | None], Verdict] = {}
+        self.hits = 0
+        self.misses = 0
+
+    @staticmethod
+    def key(
+        unit_id: str, start: int | None, end: int | None, quote: str | None
+    ) -> tuple[str, int | None, int | None, str | None]:
+        return (unit_id, start, end, quote)
+
+    def get(self, key: tuple[str, int | None, int | None, str | None]) -> Verdict | None:
+        found = self._decided.get(key)
+        if found is None:
+            self.misses += 1
+            return None
+        self.hits += 1
+        return found
+
+    def put(
+        self, key: tuple[str, int | None, int | None, str | None], verdict: Verdict
+    ) -> None:
+        self._decided[key] = verdict
+
+    def __len__(self) -> int:
+        return len(self._decided)
+
+
+def _remember(
+    cache: "VerifierCache | None",
+    key: tuple[str, int | None, int | None, str | None] | None,
+    verdict: Verdict,
+) -> Verdict:
+    """Store a decided verdict, then return it unchanged."""
+    if cache is not None and key is not None:
+        cache.put(key, verdict)
+    return verdict
+
+
 def verify_evidence(
     unit_text: str,
     *,
@@ -279,6 +329,7 @@ def verify_evidence(
     evidence: Any,
     task_id: str | None = None,
     llm: Callable[[dict], Any] | None = None,
+    cache: "VerifierCache | None" = None,
 ) -> Verdict:
     """Verify one evidence item against the original unit text.
 
@@ -290,6 +341,11 @@ def verify_evidence(
     3. otherwise the LLM's support/against/unsure is recorded as-is.
 
     The input passed to ``llm`` always contains the original text and the span.
+
+    ``cache`` is optional and opt-in. When supplied, an evidence item already decided for
+    this unit is answered from the memo instead of being asked again — measured need: 50
+    requests over 34 distinct spans on one 5000-character unit, one span asked five times.
+    The returned verdict is identical, so the caller cannot tell a hit from a miss.
     """
     record = build_verifier_input(unit_text, unit_id=unit_id, evidence=evidence)
     tid = task_id or f"verify:{unit_id}"
@@ -297,6 +353,14 @@ def verify_evidence(
     end = record["span"]["end"]
     expected = record["quote_expected"]
     observed = record["quote_observed"]
+
+    cache_key = (
+        VerifierCache.key(unit_id, start, end, expected) if cache is not None else None
+    )
+    if cache is not None and cache_key is not None:
+        hit = cache.get(cache_key)
+        if hit is not None:
+            return hit
 
     determinism: list[dict[str, Any]] = [
         {
@@ -308,40 +372,74 @@ def verify_evidence(
     ]
 
     if start is None or end is None or start < 0 or end < start or end > len(unit_text):
-        return make_verdict(
-            tid,
-            "against",
-            evidence=determinism,
-            reason="span_out_of_range",
+        return _remember(
+            cache,
+            cache_key,
+            make_verdict(
+                tid,
+                "against",
+                evidence=determinism,
+                reason="span_out_of_range",
+            ),
         )
     if expected is not None and observed != expected:
-        return make_verdict(
-            tid,
-            "against",
-            evidence=determinism,
-            reason="quote_span_mismatch",
+        return _remember(
+            cache,
+            cache_key,
+            make_verdict(
+                tid,
+                "against",
+                evidence=determinism,
+                reason="quote_span_mismatch",
+            ),
         )
 
     if llm is None:
-        return make_verdict(
-            tid,
-            "unsure",
-            evidence=determinism,
-            reason="no_llm_verifier",
+        return _remember(
+            cache,
+            cache_key,
+            make_verdict(
+                tid,
+                "unsure",
+                evidence=determinism,
+                reason="no_llm_verifier",
+            ),
         )
 
     try:
         verdict = _normalize_llm_value(llm(record))
     except ValueError:
         raise
-    except Exception as exc:  # noqa: BLE001 - verifier failure is uncertainty
-        return make_verdict(
-            tid,
-            "unsure",
-            evidence=determinism,
-            reason=f"llm_error: {type(exc).__name__}: {exc}",
+    except HostQueueTimeout as exc:
+        # A transport timeout is not a judgement. The verdict stays `unsure` — an unanswered
+        # check is never support — but the reason is named so a receipt can tell "nobody
+        # answered" apart from "the model could not decide".
+        return _remember(
+            cache,
+            cache_key,
+            make_verdict(
+                tid,
+                "unsure",
+                evidence=determinism,
+                reason=f"host_queue_timeout: {exc}",
+            ),
         )
-    return make_verdict(tid, verdict, evidence=determinism, reason="llm_judgement")
+    except Exception as exc:  # noqa: BLE001 - verifier failure is uncertainty
+        return _remember(
+            cache,
+            cache_key,
+            make_verdict(
+                tid,
+                "unsure",
+                evidence=determinism,
+                reason=f"llm_error: {type(exc).__name__}: {exc}",
+            ),
+        )
+    return _remember(
+        cache,
+        cache_key,
+        make_verdict(tid, verdict, evidence=determinism, reason="llm_judgement"),
+    )
 
 
 def verify_output(
@@ -361,6 +459,10 @@ def verify_output(
     verdicts: list[Verdict] = []
     suffixes: list[str] = []
     counts = {name: 0 for name in VERDICTS}
+    # One cache per unit. The verdict for (span, quote) is a function of *this* unit's text,
+    # so a cache that outlived the unit would be wrong; one that is never created leaves the
+    # duplication in place. Measured before this: 50 requests over 34 distinct spans.
+    cache = VerifierCache()
     assertions = _get(output, "assertions", []) or []
     for assertion_index, assertion in enumerate(assertions):
         assertion_id = str(_get(assertion, "assertion_id", "") or f"a{assertion_index:03d}")
@@ -385,6 +487,7 @@ def verify_output(
                 evidence=evidence,
                 task_id=task_id,
                 llm=llm,
+                cache=cache,
             )
             # Keep the assertion id on the same evidence rows so a verifier
             # input artifact carries span + quote + assertion together.
@@ -393,6 +496,18 @@ def verify_output(
             verdicts.append(verdict)
             suffixes.append(suffix)
             counts[verdict.verdict] += 1
+    # A cache hit is a request that was never sent. Recording the count is what lets a reader
+    # check the claim "deduplication happened" instead of taking it on faith.
+    if cache.hits:
+        counts.setdefault("deduped", 0)
+        counts["deduped"] += cache.hits
+    # A timeout is a transport fact, not a verdict: reporting it beside unsure is what lets a
+    # receipt answer "was this run actually verified".
+    timed_out = sum(
+        1 for verdict in verdicts if str(verdict.reason).startswith("host_queue_timeout")
+    )
+    if timed_out:
+        counts["timed_out"] = timed_out
     return verdicts, counts, suffixes
 
 

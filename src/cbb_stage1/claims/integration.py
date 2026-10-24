@@ -27,13 +27,14 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import asdict, is_dataclass
+from dataclasses import asdict, dataclass, field, is_dataclass
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 from pydantic import ValidationError
 
 from cbb_stage1.models import Assertion
+from cbb_stage1.orchestrator.parallel import run_ordered, stage_workers
 
 from .qa import ClaimBuildError, build_claim, make_question, normalize_claim_text
 from .verdicts import (
@@ -211,6 +212,129 @@ def _qa_map(upstream: Mapping[str, Any]) -> dict[str, list[dict[str, Any]]]:
     return mapping
 
 
+def cove_worker_count(upstream: Mapping[str, Any], question_count: int) -> int:
+    """How many threads CoVe may use for its independent answers.
+
+    Derived from the stage budget, never hardcoded: a literal would ignore `Config.max_workers` and
+    the pipeline's explicit `upstream["max_workers"]`.
+
+    Capped at the budget for a reason that is not stylistic. CoVe runs *inside* a per-statement
+    transform, which already occupies a worker thread when the stage is parallel. If each of those
+    threads spawned `max_workers` more, the total in-flight model calls would exceed the gateway's
+    `BoundedSemaphore` (sized to the stage budget), and the stage would block on itself.
+
+    Returns 1 when the budget is 1, and never more than the budget.
+    """
+    try:
+        budget = int(upstream.get("max_workers") or 1)
+    except (TypeError, ValueError):
+        budget = 1
+    if budget <= 1:
+        return 1
+    # Leave the outer transform its share: half the budget, at least one.
+    share = max(1, budget // 2)
+    return max(1, min(share, int(question_count or 1), budget))
+
+
+def _field(record: Any, name: str, default: Any = None) -> Any:
+    """Read one field from a mapping or a model, whichever the caller has."""
+    if isinstance(record, Mapping):
+        return record.get(name, default)
+    return getattr(record, name, default)
+
+
+def build_claims_qa(
+    statements: Sequence[Any],
+    unit_texts: Mapping[str, str],
+    names: Mapping[str, str] | None = None,
+) -> dict[str, list[dict[str, Any]]]:
+    """Ground each statement in its own evidence and answer it, when the evidence supports it.
+
+    Returns ``{statement_assertion_id: [question]}`` in the shape ``_qa_map`` produces. Statements
+    that cannot be grounded get **no entry**, so the caller's unanswerable fallback stays in charge.
+
+    Only ``support`` is produced: ``refute`` requires contradiction analysis, which is the conflict
+    detectors' and CoVe's job, and inventing one here would be a downgrade dressed as coverage.
+
+    ``names`` is ``{entity_id: canonical_name}`` from the work layer. It is needed because
+    `assemble` has already resolved a statement's roles to entity ids, so without the reverse map a
+    grounded statement would look ungrounded.
+
+    An answer must carry ``text, unit_id, start, end, quote`` (``qa.py:203``) — it is a grounded
+    span, not a bare verdict word.
+    """
+    id_to_name = {key: value for key, value in (names or {}).items()}
+    answered: dict[str, list[dict[str, Any]]] = {}
+    for statement in statements or ():
+        statement_id = str(_field(statement, "assertion_id") or "")
+        if not statement_id:
+            continue
+        evidence = [item for item in (_field(statement, "evidence") or []) if item is not None]
+        if not evidence:
+            continue
+
+        anchored: list[tuple[str, Any]] = []
+        for item in evidence:
+            unit_id = str(_field(item, "unit_id") or "")
+            quote = str(_field(item, "quote") or "")
+            text = unit_texts.get(unit_id) or ""
+            if not quote or not text or quote not in text:
+                # The quote is not in the unit it claims: nothing can be answered from it.
+                anchored = []
+                break
+            anchored.append((text, item))
+        if not anchored:
+            continue
+
+        roles = _field(statement, "roles") or {}
+        surfaces: list[str] = []
+        for value in roles.values() if isinstance(roles, Mapping) else ():
+            if not isinstance(value, str) or not value.strip():
+                continue
+            text_value = value.strip()
+            surfaces.append(text_value)
+            if text_value in id_to_name:
+                surfaces.append(str(id_to_name[text_value]))
+        if not surfaces:
+            continue
+        # At least one entity the assertion is about must appear in the quoted text. This is a weak
+        # check on purpose: it can only justify `support`, never `refute`.
+        quotes = [str(_field(item, "quote") or "") for _text, item in anchored]
+        if not any(any(surface in quote for quote in quotes) for surface in surfaces):
+            continue
+
+        answers: list[dict[str, Any]] = []
+        for text, item in anchored:
+            try:
+                start = int(_field(item, "start"))
+                end = int(_field(item, "end"))
+            except (TypeError, ValueError):
+                answers = []
+                break
+            answers.append(
+                {
+                    "text": text,
+                    "unit_id": str(_field(item, "unit_id") or ""),
+                    "start": start,
+                    "end": end,
+                    "quote": str(_field(item, "quote") or ""),
+                    "source": "narration",
+                }
+            )
+        if not answers:
+            continue
+
+        answered[statement_id] = [
+            {
+                "qid": f"q:{statement_id}",
+                "question": f"原文是否支持这一断言（{_field(statement, 'predicate', '')}）？",
+                "answers": answers,
+                "stance": "support",
+            }
+        ]
+    return answered
+
+
 def _unresolved_map(upstream: Mapping[str, Any]) -> dict[str, list[str]]:
     raw = upstream.get("unresolved_entities") or upstream.get("claims_unresolved_entities")
     if not isinstance(raw, Mapping):
@@ -291,6 +415,26 @@ def _statement_quotes(statement: Any, *, limit: int = 8) -> list[str]:
     return quotes
 
 
+@dataclass
+class _StatementOutcome:
+    """Everything one statement produces, so the pool never touches shared state.
+
+    ``refused`` and ``errors`` are per-statement lists rather than stage-level appends: their
+    order is part of their meaning to a reader, and a thread appending into a shared list
+    would interleave them arbitrarily.
+    """
+
+    claim_row: dict[str, Any] | None = None
+    promoted_row: dict[str, Any] | None = None
+    abstain_row: dict[str, Any] | None = None
+    promotion: dict[str, Any] | None = None
+    refused: list[dict[str, Any]] = field(default_factory=list)
+    errors: list[dict[str, Any]] = field(default_factory=list)
+    degenerate: bool = False
+    cove_revised: bool = False
+    allowed: bool = False
+
+
 def run(
     work_root: str | Path,
     *,
@@ -308,6 +452,11 @@ def run(
     unresolved_map = _unresolved_map(upstream)
     unit_texts = _load_unit_texts(root, units or [])
     names = _load_names(root)
+    # B6: no producer supplied `claims_qa`, so every claim was built from a single unanswerable
+    # question and the four-value rule only ever produced its fourth value. Ground what the
+    # statement's own evidence can ground; leave the rest to the unanswerable fallback.
+    if not qa_map:
+        qa_map = build_claims_qa(statements, unit_texts, names)
     name_to_id = {name: entity_id for entity_id, name in names.items()}
     reasoning_llm = upstream.get("reasoning_llm")
 
@@ -333,7 +482,18 @@ def run(
     )
     cove_llm = upstream.get("llm") if isinstance(upstream, Mapping) else None
     cove_revised = 0
-    for statement in statements:
+    def _process_statement(statement: Assertion) -> _StatementOutcome:
+        """Analyse one statement without touching this stage's shared state.
+
+        Runs on a worker thread when ``workers > 1``, so it must not append to a
+        stage-level list, increment a counter, or write a file: everything the
+        statement produces comes back in the outcome and is consumed in input order
+        below.
+
+        A13-AFEV §4.4 is the reason this is legitimate: "each claim can be processed
+        independently, this process is parallel and highly scalable during inference".
+        """
+        outcome = _StatementOutcome()
         statement_id = str(statement.assertion_id or "")
         questions = qa_map.get(statement_id)
         if questions:
@@ -364,20 +524,29 @@ def run(
                 unresolved_entities=unresolved,
             )
         except (ClaimBuildError, ClaimRuleError, ValidationError) as exc:
-            refused.append(
+            outcome.refused.append(
                 {
                     "statement_assertion_id": statement_id,
                     "reason": getattr(exc, "reason", "schema"),
                     "detail": str(exc),
                 }
             )
-            continue
+            return outcome
 
-        # B6 + B12: decide whether the evidence is sufficient and whether the
-        # confidence clears the abstain threshold, BEFORE the verdict is used to
-        # promote anything. Until now the semantic-entropy score was computed and
-        # stored but never consulted here, so a claim could be promoted on a
-        # 0.2-confidence basis.
+        # B6 + B12: decide whether the evidence is sufficient and whether the confidence clears the
+        # abstain threshold, BEFORE the verdict is used to promote anything.
+        #
+        # The confidence read here is `statement.confidence` — the **engine's own self-report**,
+        # written by `normalize/facts.py` from what the extractor claimed about itself. It is not a
+        # measured uncertainty score.
+        #
+        # It cannot be one at this point: semantic entropy is computed by the **validate** stage,
+        # and `postprocess.py` runs claims before validate. So the window where a measured score
+        # exists opens *after* this decision has already been made. This comment used to say the
+        # semantic-entropy score "was computed and stored but never consulted here", which read as
+        # though it were consulted now; it is not, and cannot be without moving the abstain
+        # decision after validate. That ordering limitation is real and recorded rather than
+        # papered over.
         sufficiency = evidence_sufficiency(list(statement.evidence or []))
         abstain = abstain_decision(
             statement.confidence,
@@ -386,7 +555,7 @@ def run(
         )
         if abstain.abstain:
             claim = claim.model_copy(update={"verdict": "insufficient_evidence"})
-            abstain_rows.append(
+            outcome.abstain_row = (
                 {
                     "statement_assertion_id": statement_id,
                     "claim_id": claim.claim_id,
@@ -400,7 +569,7 @@ def run(
 
         row = claim.model_dump(mode="json")
         row["created_at"] = created_at
-        claim_rows.append(row)
+        outcome.claim_row = row
         # B7/B9 runtime hooks: without a verifier LLM both are explicitly
         # degenerate (insufficient/unverifiable), never a fabricated verdict.
         # Local import avoids the claims <-> reasoning package init cycle.
@@ -435,13 +604,41 @@ def run(
             )
         except Exception as exc:  # noqa: BLE001 - one claim must not abort the stage
             afev = None
-            afev_errors.append(
+            outcome.errors.append(
                 {
                     "claim_id": row.get("claim_id"),
                     "stage": "afev",
                     "error": f"{type(exc).__name__}: {exc}",
                 }
             )
+        # AFEV decomposed the claim into atomic facts and verified each one; the list used to be
+        # dropped here (only `afev.verdict` fed a counter), so `claims.atomic_facts` was `[]` in
+        # every box even though `build_claim` accepts the field.
+        #
+        # The facts go on the row only when their aggregate agrees with the claim's verdict —
+        # the same invariant `build_claim` enforces at construction time (`qa.py:412-418`). Writing
+        # them unconditionally produced rows that contradicted themselves, and the promotion gate
+        # (which re-checks) then refused the claim.
+        if afev is not None and afev.atomic_facts:
+            from cbb_stage1.claims.verdicts import aggregate_atomic_facts
+
+            aggregated = aggregate_atomic_facts(afev.atomic_facts)
+            if aggregated == claim.verdict:
+                row["atomic_facts"] = [
+                    factor.model_dump(mode="json") for factor in afev.atomic_facts
+                ]
+            else:
+                outcome.errors.append(
+                    {
+                        "claim_id": row.get("claim_id"),
+                        "stage": "afev",
+                        "error": (
+                            "atomic_facts_inconsistent: aggregate "
+                            f"{aggregated!r} != claim verdict {claim.verdict!r}"
+                        ),
+                    }
+                )
+
         try:
             vegraph = vegraph_verify(
                 str(row.get("normalized_claim") or ""),
@@ -451,7 +648,7 @@ def run(
             )
         except Exception as exc:  # noqa: BLE001 - same reason
             vegraph = None
-            afev_errors.append(
+            outcome.errors.append(
                 {
                     "claim_id": row.get("claim_id"),
                     "stage": "vegraph",
@@ -464,7 +661,7 @@ def run(
             and afev.verdict == "insufficient_evidence"
             and vegraph.verdict == "insufficient_evidence"
         ):
-            afev_degenerate += 1
+            outcome.degenerate = True
 
         # B1 CoVe (§ the four-step loop). Opt-in like every other paid analysis: the
         # caller passes `upstream["cove"] = True` and an `llm`. Cost is 2 + questions
@@ -475,17 +672,22 @@ def run(
         # reader can inspect, and rewriting a claim here would delete the evidence of
         # what the extractor actually produced.
         if wants_cove:
+            from cbb_stage1.validate.cove import DEFAULT_MAX_QUESTIONS as cove_question_budget
             from cbb_stage1.validate.cove import cove_verify
 
+            # The paper's factored CoVe exists so the per-question answers can be batched
+            # (A09 p.4); without this the parallel path was unreachable from the only call site.
+            cove_workers = cove_worker_count(upstream, cove_question_budget)
             try:
                 cove_result = cove_verify(
                     str(row.get("normalized_claim") or ""),
                     llm=cove_llm,
                     evidence=statement_evidence,
+                    workers=cove_workers,
                 )
             except Exception as exc:  # noqa: BLE001 - one claim must not abort the stage
                 cove_result = None
-                afev_errors.append(
+                outcome.errors.append(
                     {
                         "claim_id": row.get("claim_id"),
                         "stage": "cove",
@@ -495,13 +697,13 @@ def run(
             if cove_result is not None:
                 row["cove"] = cove_result.as_dict()
                 if cove_result.status == "revised":
-                    cove_revised += 1
+                    outcome.cove_revised = True
 
         try:
             decision = promotion_decision(claim, statement)
         except ClaimRuleError as exc:  # pragma: no cover - defensive
             decision = None
-            refused.append(
+            outcome.refused.append(
                 {
                     "statement_assertion_id": statement_id,
                     "reason": "claim_inconsistent",
@@ -509,8 +711,8 @@ def run(
                 }
             )
         if decision is None:
-            continue
-        promotions.append(
+            return outcome
+        outcome.promotion = (
             {
                 "claim_id": claim.claim_id,
                 "statement_assertion_id": statement_id,
@@ -520,7 +722,7 @@ def run(
             }
         )
         if not decision.allowed:
-            continue
+            return outcome
         # §5.16/I23 layer rules on top of the AVeriTeC verdict: only a supported,
         # corroborated claim may become fact. Checked HERE rather than before the
         # claim was built, because the claim row is the evidence of what QA said —
@@ -545,29 +747,59 @@ def run(
             target_layer="fact",
         )
         if layer_violations:
-            refused.append(
+            outcome.refused.append(
                 {
                     "statement_assertion_id": statement_id,
                     "reason": layer_violations[0].code,
                     "detail": layer_violations[0].detail,
                 }
             )
-            continue
+            return outcome
         try:
             fact = build_promoted_fact(claim, statement)
         except (PromotionRefused, ClaimRuleError) as exc:
-            refused.append(
+            outcome.refused.append(
                 {
                     "statement_assertion_id": statement_id,
                     "reason": getattr(getattr(exc, "decision", None), "reason", "promotion_refused"),
                     "detail": str(exc),
                 }
             )
-            continue
-        allowed += 1
+            return outcome
+        outcome.allowed = True
         fact_row = fact.model_dump(mode="json")
         fact_row["created_at"] = created_at
-        promoted_rows.append(fact_row)
+        outcome.promoted_row = fact_row
+        return outcome
+
+    workers = stage_workers(upstream, len(statements))
+    outcomes = run_ordered(
+        statements,
+        _process_statement,
+        workers=workers,
+        thread_name_prefix="cbb-claims",
+    )
+    # Single writer, input order: the pool returned outcomes in statement order, and every
+    # side effect the serial loop used to perform happens here, in the same sequence.
+    for outcome in outcomes:
+        if outcome.abstain_row is not None:
+            abstain_rows.append(outcome.abstain_row)
+        if outcome.claim_row is not None:
+            claim_rows.append(outcome.claim_row)
+        if outcome.errors:
+            afev_errors.extend(outcome.errors)
+        if outcome.refused:
+            refused.extend(outcome.refused)
+        if outcome.degenerate:
+            afev_degenerate += 1
+        if outcome.cove_revised:
+            cove_revised += 1
+        if outcome.promotion is not None:
+            promotions.append(outcome.promotion)
+        if outcome.allowed:
+            allowed += 1
+        if outcome.promoted_row is not None:
+            promoted_rows.append(outcome.promoted_row)
 
     claims_file = _write_jsonl_atomic(claims_path(root), claim_rows)
     promoted_file = _write_jsonl_atomic(promoted_facts_path(root), promoted_rows)

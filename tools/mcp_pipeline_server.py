@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import json
 import os
+import signal
 import subprocess
 import sys
 import time
@@ -190,6 +191,15 @@ TOOLS = [
                 "work": {"type": "string", "description": "work directory"},
                 "out": {"type": "string", "description": "box output directory"},
                 "chapters": {"type": "string", "default": "1-3"},
+                "stages": {
+                    "type": "string",
+                    "description": (
+                        "comma-separated postprocess stages to run instead of all eight: "
+                        "resolve,assemble,claims,cues,temporal,validate,dedupe,derive. Useful for "
+                        "re-running one stage after a failure; unknown names are rejected rather "
+                        "than skipped."
+                    ),
+                },
                 "live": {"type": "boolean", "default": True},
                 "provider": {
                     "type": "string",
@@ -219,7 +229,18 @@ TOOLS = [
                     "type": "string",
                     "description": "model id for the http transport; recorded as the session label",
                 },
-                "max_concurrency": {"type": "integer", "default": 2},
+                "max_concurrency": {
+                    "type": "integer",
+                    # Must equal CONCURRENCY_DEFAULT (8): the handler uses that constant when the
+                    # argument is absent, so advertising 2 made an agent plan for half the
+                    # concurrency it actually got. Pinned by `test_mcp_schema_defaults.py`.
+                    "default": 8,
+                    "description": (
+                        "How many model calls the gateway may admit at once (the "
+                        "BoundedSemaphore size). Defaults to CONCURRENCY_DEFAULT and must not be "
+                        "below Config.max_workers, or stage threads queue on the semaphore."
+                    ),
+                },
                 "uq_head_checkpoint": {
                     "type": "string",
                     "description": "EXT-06 B5 UQ head artifact; without it confidence reports 'unavailable'",
@@ -253,35 +274,87 @@ TOOLS = [
         },
     },
     {
+        "name": "cbb_pause_run",
+        "description": (
+            "Pause a run at its next unit safe point (resumable). Distinct from cbb_stop_run: a "
+            "paused run keeps its work and continues where it stopped."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "work": {"type": "string", "description": "work directory the run used"},
+            },
+            "required": ["work"],
+        },
+    },
+    {
+        "name": "cbb_resume_run",
+        "description": "Release a pause set by cbb_pause_run.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "work": {"type": "string", "description": "work directory the run used"},
+            },
+            "required": ["work"],
+        },
+    },
+    {
+        "name": "cbb_stop_run",
+        "description": (
+            "Stop a run started by cbb_start_run: terminates the process tree and records who "
+            "stopped it. A run that already finished is reported as a no-op."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "work": {"type": "string", "description": "work directory the run used"},
+                "run_id": {"type": "string"},
+                "by": {"type": "string", "description": "who stopped it (recorded in the run record)"},
+            },
+            "required": ["work", "run_id"],
+        },
+    },
+    {
         "name": "cbb_status",
         "description": "Progress/status of a run, plus how many model requests wait.",
         "inputSchema": {
             "type": "object",
-            "properties": {"run_id": {"type": "string"}},
-            "required": ["run_id"],
+            "properties": {
+                "work": {"type": "string", "description": "work directory (run state lives under <work>/plan/mcp-runs)"},
+                "run_id": {"type": "string"},
+            },
+            "required": ["work", "run_id"],
         },
     },
     {
         "name": "cbb_next_requests",
-        "description": "List model requests the run is blocked on (answer them via cbb_reply).",
+        "description": (
+            "Take up to `limit` pending model requests. A returned request is CLAIMED for this "
+            "consumer so another consumer will not answer it too; the claim expires after "
+            "CLAIM_TTL_SECONDS. Answer with cbb_reply."
+        ),
         "inputSchema": {
             "type": "object",
             "properties": {
+                "work": {"type": "string", "description": "work directory (run state lives under <work>/plan/mcp-runs)"},
                 "run_id": {"type": "string"},
                 "limit": {"type": "integer", "default": 5},
             },
-            "required": ["run_id"],
+            "required": ["work", "run_id"],
         },
     },
     {
         "name": "cbb_reply",
         "description": (
             "Answer one pending model request with the agent's own answer. "
-            "Use text_file for long answers (avoids shell quoting limits)."
+            "Use text_file for long answers (avoids shell quoting limits). "
+            "The first answer to a request is kept; a later answer is reported as "
+            "{duplicate: true, kept, rejected} instead of overwriting it."
         ),
         "inputSchema": {
             "type": "object",
             "properties": {
+                "work": {"type": "string", "description": "work directory (run state lives under <work>/plan/mcp-runs)"},
                 "run_id": {"type": "string"},
                 "request_id": {"type": "string"},
                 "text": {"type": "string"},
@@ -302,7 +375,7 @@ TOOLS = [
                 },
                 "error": {"type": "string"},
             },
-            "required": ["run_id", "request_id"],
+            "required": ["work", "run_id", "request_id"],
         },
     },
     {
@@ -640,8 +713,82 @@ TOOLS = [
 # ── helpers ────────────────────────────────────────────────────────────────
 
 
-def _queue_dir(work: str | Path) -> Path:
-    return Path(work) / "plan" / "host-model"
+#: Queue location relative to the work root, for runs started before queues were per-run.
+LEGACY_QUEUE_RELATIVE = "plan/host-model"
+
+#: Per-queue directory holding one file per request a consumer has taken.
+CLAIMS = "claims"
+
+#: How long a claim is honoured before another consumer may take the request.
+#:
+#: A claim must expire or a consumer that dies mid-answer strands its request forever — the run
+#: would then block until the host-queue timeout, which is the failure mode claims exist to
+#: avoid on the other side. Five minutes is longer than any single answer takes and short enough
+#: that a dead consumer is noticed inside one run.
+CLAIM_TTL_SECONDS = 300.0
+
+
+def _claim_path(queue: Path, request_id: str) -> Path:
+    return queue / CLAIMS / f"{request_id}.json"
+
+
+def _claim_is_live(path: Path) -> bool:
+    """True when an unexpired claim already exists."""
+    try:
+        row = json.loads(path.read_text(encoding="utf-8"))
+        claimed_at = float(row.get("claimed_at") or 0.0)
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        # An unreadable claim file is treated as expired: a corrupt marker must not block a
+        # request for the rest of the run.
+        return False
+    return (time.time() - claimed_at) < CLAIM_TTL_SECONDS
+
+
+def _try_claim(queue: Path, request_id: str) -> bool:
+    """Take `request_id` for this consumer, atomically. False when someone else has it."""
+    path = _claim_path(queue, request_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    payload = json.dumps(
+        {"request_id": request_id, "claimed_at": time.time(), "pid": os.getpid()}
+    )
+
+    try:
+        descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError:
+        if _claim_is_live(path):
+            return False
+        # Expired. Remove and race to recreate: two consumers both reaching this point is fine,
+        # because only one O_EXCL create can win. Overwriting instead would let both believe
+        # they own it.
+        try:
+            path.unlink()
+        except OSError:
+            return False
+        try:
+            descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except FileExistsError:
+            return False
+
+    with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+        handle.write(payload + "\n")
+    return True
+
+
+
+def _queue_dir(work: str | Path, relative: str | None = None) -> Path:
+    """Where a run's host-model queue lives.
+
+    ``relative`` comes from the run record and is a path under the work root. When it is
+    absent (a run started before this field existed) the legacy shared directory is used, so
+    old work directories keep working. Deliberately not gated on the directory existing: the
+    record is written before the pipeline starts, so a fresh run's queue has not been created
+    yet.
+    """
+    base = Path(work)
+    if relative:
+        return base / relative
+    return base / LEGACY_QUEUE_RELATIVE
 
 
 def _write_json(path: Path, value: dict[str, Any]) -> None:
@@ -723,6 +870,15 @@ def _tool_result(payload: dict[str, Any]) -> dict[str, Any]:
 #: pool draining the same queue concurrently does not pay that — the queue is built for
 #: it (`max_concurrency`).
 TRANSPORTS: tuple[str, ...] = ("host", "http")
+
+#: Default number of concurrent model calls.
+#:
+#: This was 2, which is below the pipeline's own `Config.max_workers` default of 4 — so a
+#: parallel stage could open 4 threads and have half of them blocked on the gateway's
+#: `BoundedSemaphore`. The reference implementation in the library defaults to 25
+#: (`graphrag .../defaults.py:189`); 8 is a deliberate middle: enough that four stages can
+#: overlap, low enough that a host agent is not asked for 25 queue replies at once.
+CONCURRENCY_DEFAULT = 8
 
 
 def _transport_settings(args: dict[str, Any]) -> tuple[dict[str, Any], dict[str, str]]:
@@ -825,7 +981,7 @@ def cbb_start_run(args: dict[str, Any]) -> dict[str, Any]:
         policy_path,
         {
             **transport_policy,
-            "max_concurrency": int(args.get("max_concurrency") or 2),
+            "max_concurrency": int(args.get("max_concurrency") or CONCURRENCY_DEFAULT),
             "max_tokens": int(args.get("max_tokens") or 4096),
             "timeout": int(args.get("timeout") or 180),
             "embedding_base_url": str(args.get("embedding_base_url") or "http://127.0.0.1:8080/v1"),
@@ -885,10 +1041,22 @@ def cbb_start_run(args: dict[str, Any]) -> dict[str, Any]:
         "--model",
         str(args.get("model") or "session"),
     ]
+    # Stage selection: `--stages` is only added when asked for, so a plain run keeps the default
+    # eight-stage chain.
+    if args.get("stages"):
+        argv.extend(["--stages", str(args["stages"])])
 
     run_id = uuid.uuid4().hex[:12]
     log_path = work / "plan" / f"mcp-run-{run_id}.log"
     log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # One queue per run. Without this, a second run against the same work directory reads the
+    # previous run's unanswered requests as its own (measured: 16 pending, 14 answered). Only
+    # the host transport has a queue at all.
+    queue_relative = ""
+    if env.get("CBB_HOST_MODEL_QUEUE"):
+        queue_relative = f"{LEGACY_QUEUE_RELATIVE}/{run_id}"
+        env["CBB_HOST_MODEL_QUEUE"] = queue_relative
 
     # The MCP client owns this server process and kills its process *tree* when
     # the call ends. A plain child — even DETACHED_PROCESS — is still a descendant
@@ -944,9 +1112,12 @@ def cbb_start_run(args: dict[str, Any]) -> dict[str, Any]:
         "pid": process_pid,
         "started": time.time(),
         "chapters": str(args.get("chapters") or "1-3"),
+        "stages": str(args.get("stages") or ""),
         "argv": argv,
         "log": str(log_path),
         "returncode": None,
+        # Empty for http/mcp transports: those have no queue.
+        "queue": queue_relative,
         "preflight_status": preflight["status"],
         "preflight_blocked": preflight["blocked"],
         "preflight_forced": forced,
@@ -1109,8 +1280,179 @@ def _telemetry_summary(work: Path) -> dict[str, Any]:
     }
 
 
+def _terminate_tree(pid: int) -> str:
+    """Stop a run's process tree.
+
+    Returns ``""`` when nothing was terminated, ``"tree"`` when the process and its children were
+    reaped, or ``"process"`` when only the process itself could be ended. The distinction is not
+    cosmetic: a run's children write into its work directory, so a ``"process"`` stop can leave
+    writers behind.
+
+    `taskkill /T /F` is the only portable way to reach the children on Windows. When spawning it is
+    denied outright (`PermissionError` from `CreateProcess`, seen on this host), the fallback is
+    `os.kill`, which reaches the process but not the tree.
+    """
+    if pid <= 0:
+        return ""
+    if os.name == "nt":
+        try:
+            # No `capture_output`: the exit status is all that is needed, and avoiding pipes keeps
+            # this working under another framework's output capture.
+            result = subprocess.run(
+                ["taskkill", "/PID", str(pid), "/T", "/F"],
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            if result.returncode == 0:
+                return "tree"
+        except OSError:
+            pass
+        try:
+            os.kill(pid, signal.SIGTERM)
+            return "process"
+        except OSError:
+            return ""
+    try:
+        os.killpg(os.getpgid(pid), signal.SIGTERM)
+        return "tree"
+    except (ProcessLookupError, PermissionError, OSError):
+        try:
+            os.kill(pid, signal.SIGTERM)
+            return "process"
+        except OSError:
+            return ""
+
+
+def _control_flag(work: str, name: str) -> Path:
+    """Where the pipeline polls for a cross-process control flag."""
+    return Path(work).resolve() / "plan" / name
+
+
+def cbb_pause_run(args: dict[str, Any]) -> dict[str, Any]:
+    """Pause a run at its next unit safe point, resumably.
+
+    Distinct from `cbb_stop_run`: a paused run keeps its work and resumes where it stopped, a stopped
+    one does not. The flag is a file under `<work>/plan/` because the pipeline runs detached — a Python
+    flag in this process would never reach it.
+    """
+    work = str(args.get("work") or "").strip()
+    if not work:
+        return {"ok": False, "error": "work is required (the flag lives under <work>/plan)"}
+    flag = _control_flag(work, "pause.flag")
+    try:
+        flag.parent.mkdir(parents=True, exist_ok=True)
+        flag.write_text("paused", encoding="utf-8")
+    except OSError as exc:
+        return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+    # Also set the in-process flag: when this server embeds a pipeline, the file alone is not the only
+    # surface that has to agree.
+    try:
+        from cbb_stage1.orchestrator.progress import pause as _pause
+
+        _pause()
+    except Exception:  # noqa: BLE001 - the file is the authority for a detached run
+        pass
+    return {"ok": True, "paused": True, "flag": str(flag)}
+
+
+def cbb_resume_run(args: dict[str, Any]) -> dict[str, Any]:
+    """Release a pause. Does nothing if the run was not paused."""
+    work = str(args.get("work") or "").strip()
+    if not work:
+        return {"ok": False, "error": "work is required (the flag lives under <work>/plan)"}
+    flag = _control_flag(work, "pause.flag")
+    existed = flag.exists()
+    try:
+        flag.unlink(missing_ok=True)
+    except OSError as exc:
+        return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+    try:
+        from cbb_stage1.orchestrator.progress import resume as _resume
+
+        _resume()
+    except Exception:  # noqa: BLE001 - the file removal above is what matters for a detached run
+        pass
+    return {"ok": True, "paused": False, "was_paused": existed, "flag": str(flag)}
+
+
+def cbb_stop_run(args: dict[str, Any]) -> dict[str, Any]:
+    """Stop a run started through `cbb_start_run`.
+
+    The surface could start work but not stop it, so ending a run meant reaching outside the
+    protocol. This terminates the recorded process **and its children**: the pipeline runs detached
+    and spawns worker activity, and killing only the parent leaves processes writing into the same
+    work directory.
+
+    A run that already finished is reported as a no-op rather than a kill, and an unknown run id is
+    an error rather than a success — `stopped: true` must mean a process died.
+    """
+    work = str(args.get("work") or "").strip()
+    if not work:
+        return {"ok": False, "error": "work is required (run state lives under <work>/plan/mcp-runs)"}
+    run_id = str(args.get("run_id") or "").strip()
+    if not run_id:
+        return {"ok": False, "error": "run_id is required"}
+    by = str(args.get("by") or "agent").strip() or "agent"
+
+    work_path = Path(work).resolve()
+    record = _load_run(work_path, run_id)
+    if record is None:
+        return {"ok": False, "error": f"no such run: {run_id}"}
+
+    if record.get("returncode") is not None:
+        return {
+            "ok": True,
+            "stopped": False,
+            "reason": "already finished",
+            "returncode": record.get("returncode"),
+            "run_id": run_id,
+        }
+
+    pid = int(record.get("pid") or 0)
+    stop_mode = _terminate_tree(pid)
+    did_stop = bool(stop_mode)
+
+    record["stopped_by"] = by
+    record["stopped_at"] = time.strftime("%Y-%m-%dT%H:%M:%S%z")
+    # `cbb_status` reads `returncode` to decide whether a run is in flight; leaving it None would
+    # keep reporting a stopped run as running.
+    record["returncode"] = int(record.get("returncode") or -15)
+    record["stop_mode"] = stop_mode
+    record["stop_note"] = (
+        "terminated by cbb_stop_run" if did_stop else "process already gone"
+    )
+    _save_run(work_path, run_id, record)
+
+    return {
+        "ok": True,
+        "stopped": bool(did_stop),
+        "run_id": run_id,
+        "pid": pid,
+        "mode": stop_mode,
+        "reason": (
+            ""
+            if stop_mode == "tree"
+            else "only the process was stopped; children may still be running"
+            if stop_mode == "process"
+            else "process was already gone"
+        ),
+        "stopped_by": by,
+        "returncode": record["returncode"],
+    }
+
+
 def cbb_status(args: dict[str, Any]) -> dict[str, Any]:
     record, err = _resolve_run(args)
+    # A5: "why is this run not moving?" is the question status exists to answer, and a paused run is
+    # not the same as a stuck one.
+    _control = {}
+    try:
+        from cbb_stage1.orchestrator.progress import control_state
+
+        _control = dict(control_state())
+    except Exception:  # noqa: BLE001 - status must not fail because a probe did
+        _control = {}
     if err is not None:
         return err
     work = Path(record["work"])
@@ -1191,7 +1533,7 @@ def cbb_next_requests(args: dict[str, Any]) -> dict[str, Any]:
     if err is not None:
         return err
     limit = max(1, int(args.get("limit") or 5))
-    queue = _queue_dir(Path(record["work"]))
+    queue = _queue_dir(Path(record["work"]), record.get("queue"))
     requests: list[dict[str, Any]] = []
     for path in sorted((queue / REQUESTS).glob("*.json")):
         if (queue / RESPONSES / path.name).exists():
@@ -1199,6 +1541,11 @@ def cbb_next_requests(args: dict[str, Any]) -> dict[str, Any]:
         try:
             row = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
+            continue
+        # Taking a request marks it, so a second consumer does not answer the same question.
+        # Without this, measured on a 12-request queue with three consumers: 15 touches for 12
+        # requests, and two consumers answering the same verifier question differently.
+        if not _try_claim(queue, str(row.get("request_id") or path.stem)):
             continue
         requests.append(row)
         if len(requests) >= limit:
@@ -1215,7 +1562,7 @@ def cbb_reply(args: dict[str, Any]) -> dict[str, Any]:
     if err is not None:
         return err
     request_id = str(args["request_id"])
-    queue = _queue_dir(Path(record["work"]))
+    queue = _queue_dir(Path(record["work"]), record.get("queue"))
     error = args.get("error")
     text = str(args.get("text") or "")
     text_file = args.get("text_file")
@@ -1223,6 +1570,22 @@ def cbb_reply(args: dict[str, Any]) -> dict[str, Any]:
         text = Path(str(text_file)).read_text(encoding="utf-8")
     if not error and not text:
         return {"error": "reply needs text, text_file or error"}
+    # First answer wins. With several consumers on one queue, "last write wins" makes the stored
+    # answer depend on scheduling — and for a verifier request two consumers can disagree.
+    existing_path = queue / RESPONSES / f"{request_id}.json"
+    if existing_path.exists():
+        try:
+            existing = json.loads(existing_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            existing = {}
+        return {
+            "run_id": record["run_id"],
+            "request_id": request_id,
+            "accepted": False,
+            "duplicate": True,
+            "kept": existing.get("text"),
+            "rejected": text,
+        }
     _write_json(
         queue / RESPONSES / f"{request_id}.json",
         {
@@ -1367,7 +1730,10 @@ DISABLED_CAPABILITIES: dict[str, dict[str, str]] = {
         "kind": "blocked_by_transport",
         "what_it_does": "用 token logprobs 估算不确定性",
         "what_it_is_not": "host 传输不提供 logprobs",
-        "why_kept": "换白盒后端即可启用，代码完整",
+        "why_kept": (
+            "换白盒后端只能让它拿到 logprobs；论文的 SEP 是训练出来的线性探针，本项目实现的是"
+            "手写启发式——无 head、无 checkpoint、无训练数据、无 γ⋆，所以换后端也到不了论文方法"
+        ),
         "usable_as": "不可用；capability_gaps 已报 unavailable",
     },
     "uq_heads": {
@@ -1376,7 +1742,10 @@ DISABLED_CAPABILITIES: dict[str, dict[str, str]] = {
         "kind": "needs_artifact",
         "what_it_does": "claim 级不确定性头推理",
         "what_it_is_not": "没有生产 checkpoint；且主模型随 agent 变，head 绑死基座",
-        "why_kept": "代码完整，可现场训练验证链路",
+        "why_kept": (
+            "可现场训练验证链路，但训练的是替代表示：特征层用表层标量绕开模型内部，"
+            "不是论文 attention/logits 上的 transformer 头；auto 路径也没有读取 checkpoint"
+        ),
         "usable_as": "不可用；capability_gaps 已报 external",
     },
     "d14_100_endings": {
@@ -1783,6 +2152,9 @@ _DISPATCH = {
     "cbb_call_wiring": cbb_call_wiring,
     "cbb_start_run": cbb_start_run,
     "cbb_status": cbb_status,
+    "cbb_pause_run": cbb_pause_run,
+    "cbb_resume_run": cbb_resume_run,
+    "cbb_stop_run": cbb_stop_run,
     "cbb_next_requests": cbb_next_requests,
     "cbb_reply": cbb_reply,
     "cbb_build_box": cbb_build_box,

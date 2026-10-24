@@ -227,6 +227,26 @@ def _calibration_version(raw: Assertion) -> str | None:
     return None
 
 
+#: Evidence modes that mean "someone other than the narrator said this".
+_ATTRIBUTED_MODES = frozenset(
+    {"dialogue", "inner", "memory", "document", "letter"}
+)
+
+
+def _is_narration_only(raw: Assertion) -> bool:
+    """True when nothing in the evidence claims to be someone else's words.
+
+    Used to decide whether a downgrade may be attributed to the narrator. An assertion with no
+    evidence at all is treated as narration: the narrator is then the only speaker left, and the
+    alternative is dropping the record entirely.
+    """
+    modes = {
+        str(getattr(item, "mode", "") or "")
+        for item in (raw.evidence or ())
+    }
+    return not (modes & _ATTRIBUTED_MODES)
+
+
 def _resolve_speaker(raw: Assertion) -> Speaker | None:
     if raw.speaker is not None:
         return raw.speaker
@@ -430,6 +450,15 @@ class Assembler:
         speaker: Speaker | None = None
         if layer == "statement":
             speaker = _resolve_speaker(raw)
+            if speaker is None and downgraded and _is_narration_only(raw):
+                # The downgrade is what created this statement, and for narration the speaker can
+                # only be the narrator: "the narrator claims X" is the honest reading. Without this
+                # the assertion was quarantined, and `narrator_reliability=unreliable` silently
+                # deleted narration instead of lowering its layer.
+                #
+                # Guarded on the evidence mode: a downgraded *dialogue* line belongs to whoever said
+                # it, and blaming the narrator for someone else's line would wave it through.
+                speaker = Speaker(kind="narrator", name="narrator")
             if speaker is None:
                 # 01-箱规格 §5.16 / I16: a `statement` MUST carry a speaker. This is a
                 # hard rule, not a preference — the quarantine is the specified outcome,

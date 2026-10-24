@@ -28,7 +28,7 @@ FIXED = "2026-10-18T23:00:00+08:00"
 BOOK = "t"
 U1 = "u:t:v01:c001"
 U2 = "u:t:v01:c002"
-T1 = "贝塔心叶走近黑之魔王。"
+T1 = "言万心叶走近黑之魔王。"
 T2 = "黑之魔王说：「我来了。」"
 
 STATEMENT_ID = "a:" + "1" * 16
@@ -117,10 +117,10 @@ def _assertion(
         "book_id": BOOK,
         "predicate": "性质",
         "library": "设定",
-        "roles": {"主体": "贝塔心叶", "值": {"literal": value}},
+        "roles": {"主体": "言万心叶", "值": {"literal": value}},
         "qualifiers": {"negated": False, "modality": "asserted", "time": None, "location": None},
         "claim_layer": claim_layer,
-        "evidence": [_evidence(U1, T1, "贝塔心叶")],
+        "evidence": [_evidence(U1, T1, "言万心叶")],
         "confidence": 0.7,
         "confidence_method": "evidence_span",
         "status": "asserted",
@@ -138,10 +138,10 @@ def _event(event_id: str, summary: str) -> dict:
         "book_id": BOOK,
         "type": "登场",
         "summary": summary,
-        "participants": ["贝塔心叶"],
+        "participants": ["言万心叶"],
         "unit_id": U1,
         "importance": "high",
-        "evidence": [_evidence(U1, T1, "贝塔心叶")],
+        "evidence": [_evidence(U1, T1, "言万心叶")],
         "status": "asserted",
         "deps": [U1],
     }
@@ -172,11 +172,11 @@ def make_work(tmp_path: Path) -> Path:
     output_1 = {
         "unit_id": U1,
         "mentions": [
-            {"unit_id": U1, "surface": "贝塔心叶", "start": 0, "end": 4, "occurrence": 1, "mention_type": "name"},
+            {"unit_id": U1, "surface": "言万心叶", "start": 0, "end": 4, "occurrence": 1, "mention_type": "name"},
             {"unit_id": U1, "surface": "黑之魔王", "start": 5, "end": 9, "occurrence": 1, "mention_type": "name"},
         ],
         "entities": [
-            {"book_id": BOOK, "type": "person", "canonical_name": "贝塔心叶", "aliases": ["心叶"], "tier": "canonical"},
+            {"book_id": BOOK, "type": "person", "canonical_name": "言万心叶", "aliases": ["心叶"], "tier": "canonical"},
             {"book_id": BOOK, "type": "person", "canonical_name": "黑之魔王", "aliases": [], "tier": "major"},
         ],
         "assertions": [
@@ -184,14 +184,14 @@ def make_work(tmp_path: Path) -> Path:
             _assertion(FACT_A, "A"),
             _assertion(FACT_B, "B"),
         ],
-        "events": [_event(EVENT_1, "贝塔心叶走近"), _event(EVENT_2, "黑之魔王回望")],
+        "events": [_event(EVENT_1, "言万心叶走近"), _event(EVENT_2, "黑之魔王回望")],
         "cues": [
             {
                 "cue_id": ENGINE_CUE,
                 "book_id": BOOK,
                 "kind": "object",
                 "subject": {"entity_id": None, "literal": "engine-cue"},
-                "setup": {"unit_id": U1, "evidence": [_evidence(U1, T1, "贝塔心叶")]},
+                "setup": {"unit_id": U1, "evidence": [_evidence(U1, T1, "言万心叶")]},
                 "status": "active",
                 "expected": "引擎线索",
                 "confidence": 0.5,
@@ -215,17 +215,17 @@ def make_work(tmp_path: Path) -> Path:
 def _valid_claim() -> dict:
     return {
         "statement_assertion_id": STATEMENT_ID,
-        "normalized_claim": "贝塔心叶能读取他人心声",
+        "normalized_claim": "言万心叶能读取他人心声",
         "claim_type": "attribute",
         "questions": [
             {
                 "qid": "q1",
-                "question": "贝塔心叶能读取什么？",
+                "question": "言万心叶能读取什么？",
                 "answers": [
                     {
                         "text": "他人心声",
                         "unit_id": U1,
-                        "quote": "贝塔心叶",
+                        "quote": "言万心叶",
                         "source": "narration",
                     }
                 ],
@@ -263,7 +263,7 @@ def _conflict() -> dict:
         "kind": "attribute",
         "left": FACT_A,
         "right": FACT_B,
-        "detail": "贝塔心叶 的性质出现两个值：['A', 'B']",
+        "detail": "言万心叶 的性质出现两个值：['A', 'B']",
         "status": "open",
         "decision": None,
         "resolved_by": None,
@@ -310,10 +310,10 @@ def test_writer_reads_work_assertion_ids_so_claims_resolve(tmp_path):
                 "book_id": BOOK,
                 "predicate": "性质",
                 "library": "设定",
-                "roles": {"主体": "贝塔心叶", "值": {"literal": "能读取他人心声"}},
+                "roles": {"主体": "言万心叶", "值": {"literal": "能读取他人心声"}},
                 "claim_layer": "statement",
                 "speaker": {"kind": "narrator", "entity_id": None, "name": "叙述者"},
-                "evidence": [_evidence(U1, T1, "贝塔心叶")],
+                "evidence": [_evidence(U1, T1, "言万心叶")],
                 "confidence": 0.7,
                 "confidence_method": "evidence_span",
                 "status": "asserted",
@@ -434,7 +434,7 @@ def test_writer_reads_merges_from_work_table_and_does_not_auto_merge(tmp_path):
 
 def make_merge_work(tmp_path: Path) -> dict[str, Path]:
     """Two work roots: one without a merge table, one with it."""
-    text = "心叶与贝塔心叶同行。"
+    text = "心叶与言万心叶同行。"
     alias_id = "e:t:person:" + "a" * 12
     canonical_id = "e:t:person:" + "b" * 12
 
@@ -463,11 +463,11 @@ def make_merge_work(tmp_path: Path) -> dict[str, Path]:
                 "unit_id": U1,
                 "mentions": [
                     {"unit_id": U1, "surface": "心叶", "start": 0, "end": 2, "occurrence": 1, "entity_id": alias_id},
-                    {"unit_id": U1, "surface": "贝塔心叶", "start": 3, "end": 7, "occurrence": 1, "entity_id": canonical_id},
+                    {"unit_id": U1, "surface": "言万心叶", "start": 3, "end": 7, "occurrence": 1, "entity_id": canonical_id},
                 ],
                 "entities": [
                     {"entity_id": alias_id, "book_id": BOOK, "type": "person", "canonical_name": "心叶", "aliases": [], "tier": "minor"},
-                    {"entity_id": canonical_id, "book_id": BOOK, "type": "person", "canonical_name": "贝塔心叶", "aliases": [], "tier": "canonical"},
+                    {"entity_id": canonical_id, "book_id": BOOK, "type": "person", "canonical_name": "言万心叶", "aliases": [], "tier": "canonical"},
                 ],
             },
         )
@@ -492,7 +492,7 @@ def test_writer_prefers_work_cues_over_engine_cues(tmp_path):
                 "book_id": BOOK,
                 "kind": "line",
                 "subject": {"entity_id": None, "literal": "work-cue"},
-                "setup": {"unit_id": U1, "evidence": [_evidence(U1, T1, "贝塔心叶")]},
+                "setup": {"unit_id": U1, "evidence": [_evidence(U1, T1, "言万心叶")]},
                 "reinforce": [],
                 "payoff": {"event_id": None, "unit_id": None, "evidence": []},
                 "status": "active",
@@ -559,13 +559,13 @@ def test_dedupe_integration_writes_entity_cards_and_reversible_map(tmp_path):
             "unit_id": U1,
             "entities": [
                 {
-                    "canonical_name": "贝塔心叶",
+                    "canonical_name": "言万心叶",
                     "type": "person",
                     "aliases": ["心叶"],
                     "description": "能读取他人心声。",
                 },
                 {
-                    "canonical_name": "贝塔心叶 ",  # whitespace variant
+                    "canonical_name": "言万心叶 ",  # whitespace variant
                     "type": "person",
                     "aliases": [],
                     "description": " 能读取他人心声。 ",  # exact-duplicate fragment
@@ -587,7 +587,7 @@ def test_dedupe_integration_writes_entity_cards_and_reversible_map(tmp_path):
     cards = _read_jsonl(work / "assemble" / "entity_cards.jsonl")
     assert len(cards) == 1
     card = cards[0]
-    assert card["canonical_name"] == "贝塔心叶"
+    assert card["canonical_name"] == "言万心叶"
     assert card["description"] is None
     assert card["description_mode"] == "observations_only"
     assert card["observed_descriptions"] == ["能读取他人心声。"]
@@ -599,7 +599,7 @@ def test_dedupe_integration_writes_entity_cards_and_reversible_map(tmp_path):
 
     dedupe_map = json.loads((work / "assemble" / "dedupe_map.json").read_text(encoding="utf-8"))
     assert dedupe_map["contract"] == "cbb-dedupe-map/1"
-    assert dedupe_map["entities"]["mapping"]["贝塔心叶 "] == "贝塔心叶"
+    assert dedupe_map["entities"]["mapping"]["言万心叶 "] == "言万心叶"
     assert dedupe_map["descriptions"]["duplicates"][" 能读取他人心声。 "] == "能读取他人心声。"
 
 
@@ -755,10 +755,10 @@ def test_writer_does_not_resurrect_an_assertion_the_stage_rejected(tmp_path):
                 "book_id": BOOK,
                 "predicate": "性质",
                 "library": "设定",
-                "roles": {"主体": "贝塔心叶", "值": {"literal": "能读取他人心声"}},
+                "roles": {"主体": "言万心叶", "值": {"literal": "能读取他人心声"}},
                 "claim_layer": "fact",
                 "speaker": None,
-                "evidence": [_evidence(U1, T1, "贝塔心叶")],
+                "evidence": [_evidence(U1, T1, "言万心叶")],
                 "confidence": 0.7,
                 "confidence_method": "evidence_span",
                 "status": "asserted",

@@ -31,7 +31,14 @@ def cmd_run(args: argparse.Namespace) -> int:
         # assertions to the statement layer instead of asserting them as facts.
         cfg_kwargs["narrator_reliability"] = args.narrator_reliability
     cfg = Config.load(args.config) if args.config else Config(**cfg_kwargs)
-    result = run_pipeline(cfg, chapters=args.chapters)
+    selected_stages = None
+    if getattr(args, "stages", None):
+        from cbb_stage1.orchestrator.postprocess import parse_stage_names
+
+        selected_stages = parse_stage_names(args.stages)
+    result = run_pipeline(
+        cfg, chapters=args.chapters, postprocess_stages=selected_stages
+    )
     print(f"status={result.status} units={result.units_processed}/{result.units_total} work={result.work_dir}")
     if args.box:
         from cbb_stage1.box.writer import build_box
@@ -540,6 +547,15 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--out", default="artifacts/box")
     p.add_argument("--work", default="artifacts/work")
     p.add_argument("--chapters", default="1-3")
+    p.add_argument(
+        "--stages",
+        default=None,
+        help=(
+            "comma-separated postprocess stages to run, in DEFAULT_STAGES order "
+            "(resolve,assemble,claims,cues,temporal,validate,dedupe,derive). "
+            "Default: all of them."
+        ),
+    )
     p.add_argument("--live", action="store_true")
     p.add_argument("--provider")
     p.add_argument("--model")

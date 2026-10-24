@@ -75,7 +75,7 @@ def test_safety_levels_match_ai_reader_table():
     assert alias_safety_level("大人") == SAFETY_BLOCKED
     assert alias_safety_level("我的父亲") == SAFETY_BLOCKED
     assert alias_safety_level("剑") == SAFETY_SUSPICIOUS
-    assert alias_safety_level("贝塔心叶") == SAFETY_SAFE
+    assert alias_safety_level("言万心叶") == SAFETY_SAFE
     assert alias_safety_level("心叶") == SAFETY_SAFE
 
 
@@ -86,7 +86,7 @@ def test_alias_is_safe_only_accepts_level_two():
 
 
 def test_filter_aliases_drops_unsafe_and_owner_and_duplicates():
-    kept = filter_aliases(["心叶", "大哥", "心叶", "贝塔心叶", "剑", "  "], owner="贝塔心叶")
+    kept = filter_aliases(["心叶", "大哥", "心叶", "言万心叶", "剑", "  "], owner="言万心叶")
     assert kept == ["心叶"]
 
 
@@ -112,31 +112,31 @@ def test_union_find_returns_engine_groups():
 def test_build_alias_map_merges_explicit_aliases():
     alias_map = build_alias_map(
         [
-            _dict_entry("贝塔心叶", ("心叶",), frequency=10),
+            _dict_entry("言万心叶", ("心叶",), frequency=10),
             _dict_entry("拉法", ("拉法尔",), frequency=8),
         ],
-        [_chapter([CharacterFact(name="贝塔心叶", new_aliases=["叶子"])])],
+        [_chapter([CharacterFact(name="言万心叶", new_aliases=["叶子"])])],
     )
     assert alias_map == {
-        "心叶": "贝塔心叶",
-        "叶子": "贝塔心叶",
+        "心叶": "言万心叶",
+        "叶子": "言万心叶",
         "拉法尔": "拉法",
     }
-    assert "贝塔心叶" not in alias_map  # canonical never maps to itself
+    assert "言万心叶" not in alias_map  # canonical never maps to itself
 
 
 def test_build_alias_map_from_entities_uses_tier_prior():
     alias_map = build_alias_map_from_entities(
         [
-            _entity("贝塔心叶", ("心叶",)),
+            _entity("言万心叶", ("心叶",)),
             _entity("另一个角色", ("心叶",)),
         ]
     )
-    assert alias_map.get("心叶") in {"贝塔心叶", "另一个角色"}
+    assert alias_map.get("心叶") in {"言万心叶", "另一个角色"}
 
 
 def test_canonical_surface_is_identity_for_unknown():
-    assert canonical_surface({"心叶": "贝塔心叶"}, "心叶") == "贝塔心叶"
+    assert canonical_surface({"心叶": "言万心叶"}, "心叶") == "言万心叶"
     assert canonical_surface({}, "未知") == "未知"
 
 
@@ -146,15 +146,15 @@ def test_canonical_surface_is_identity_for_unknown():
 
 
 def test_generic_kinship_alias_is_not_a_union_find_key():
-    alias_map = build_alias_map([_dict_entry("贝塔心叶", ("大哥", "心叶"), frequency=5)])
+    alias_map = build_alias_map([_dict_entry("言万心叶", ("大哥", "心叶"), frequency=5)])
     assert "大哥" not in alias_map
-    assert alias_map["心叶"] == "贝塔心叶"
+    assert alias_map["心叶"] == "言万心叶"
 
 
 def test_unsafe_character_name_is_skipped_entirely():
     # "老人" is a generic surface: its alias assignment must not create a key.
     alias_map = build_alias_map(
-        [], [_chapter([CharacterFact(name="老人", new_aliases=["贝塔心叶"])])]
+        [], [_chapter([CharacterFact(name="老人", new_aliases=["言万心叶"])])]
     )
     assert alias_map == {}
 
@@ -165,12 +165,12 @@ def test_two_established_groups_are_never_bridged():
     # alias false-merge).
     alias_map = build_alias_map([
         _dict_entry("林惊羽", ("惊羽", "羽哥"), frequency=10),
-        _dict_entry("伽马莉莎", ("伽马", "莉莎", "惊羽"), frequency=8),
+        _dict_entry("梅芙莉莎", ("梅芙", "莉莎", "惊羽"), frequency=8),
     ])
     assert alias_map["惊羽"] == "林惊羽"
-    assert alias_map["伽马"] == "伽马莉莎"
-    assert alias_map["惊羽"] != "伽马莉莎"
-    assert "林惊羽" not in alias_map and "伽马莉莎" not in alias_map
+    assert alias_map["梅芙"] == "梅芙莉莎"
+    assert alias_map["惊羽"] != "梅芙莉莎"
+    assert "林惊羽" not in alias_map and "梅芙莉莎" not in alias_map
 
 
 # ---------------------------------------------------------------------------

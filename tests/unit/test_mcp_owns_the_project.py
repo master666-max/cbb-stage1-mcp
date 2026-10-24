@@ -137,12 +137,15 @@ def test_the_tool_returns_structured_data(server, tool: str) -> None:
 def test_the_server_still_exposes_every_registered_tool(server) -> None:
     """Refactoring must not lose a tool from the dispatch table."""
     registered = set(server._DISPATCH)
-    assert len(registered) == 22, f"expected 22 tools, got {len(registered)}"
+    assert len(registered) == 25, f"expected 23 tools, got {len(registered)}"
     for name in (
         "cbb_start_run", "cbb_status", "cbb_next_requests", "cbb_reply",
         "cbb_build_box", "cbb_lint_box", "cbb_gate", "cbb_lexicon_approve",
         "cbb_supersede", "cbb_conflict_resolve", "cbb_quarantine_adjudicate",
         "cbb_annotator_agreement",
+        "cbb_stop_run",
+        "cbb_pause_run",
+        "cbb_resume_run",
     ):
         assert name in registered, f"{name} disappeared from the dispatch table"
 

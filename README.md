@@ -1,98 +1,92 @@
-# cbb-stage1
+# cbb_stage1
 
-抽取段 v6.1 管线（箱 v2.2 契约）。**MCP 驱动**：21 个工具构成完整的管辖面，
-CLI 只是开发与修 bug 用的前端。
+抽取段 v6.1 管线（箱 v2.2 契约）。设计见 `../设计/抽取段-v6/`，验收见
+`../设计/抽取段-v6/07-吸收机制总清单-v2-20261020.md`。
 
-```
-MCP 工具 ──┐
-           ├──> cbb_stage1 库（全部真实逻辑）
-CLI      ──┘
-```
+## ⚠️ 本包不是自包含的：必须同时带上 `设计/抽取段-v6/`
 
-## 快速开始
-
-### 方式一：安装包（推荐，给另一台设备）
-
-从 [Releases](../../releases) 下载 `cbb-mcp-*.zip`，解压到任意目录，把 `mcp.json`
-并进宿主的 MCP 配置，重开会话即可。**不需要 pip install，不需要任何项目路径。**
-
-```json
-{
-  "mcpServers": {
-    "cbb": { "command": "python", "args": ["-u", "<解压目录>/server.py"] }
-  }
-}
-```
-
-宿主 Python 需 3.12+，依赖：
+`src/` 与 `tests/` 都靠**兄弟目录** `../设计/抽取段-v6/schemas/` 工作：
+`box/writer.py` 建箱时从那里读 19 份 schema，`tests/unit/test_*` 也从那里读。
+只复制 `cbb_stage1_v6/` 一个目录过去，建箱会直接抛：
 
 ```
-pydantic>=2.7  httpx>=0.27  ebooklib>=0.18  beautifulsoup4>=4.12
-rapidfuzz>=3.9  jieba>=0.42  PyYAML>=6.0  jsonschema>=4.22
+BuildError: box schemas not found: <parent>/设计/抽取段-v6/schemas
 ```
 
-### 方式二：从源码
+2026-10-21 实测：只复制 `cbb_stage1_v6/` 时 **46 个测试失败**；把 `设计/` 一起复制后
+**1027 个全过**。所以拷贝时保持这个相对位置：
+
+```
+<任意父目录>/
+├── cbb_stage1_v6/          # 本包
+└── 设计/抽取段-v6/schemas/  # 必需，不是文档
+```
+
+## 新机器上跑起来
+
+需要 **Python 3.12**（`pyproject.toml` 的 `requires-python`，`preflight.MIN_PYTHON`
+与它保持一致——两处曾一个写 3.11 一个写 3.12，preflight 会对 pip 装不上的环境报 READY）。
 
 ```powershell
-$env:PYTHONUTF8='1'
-py -0                                   # 看清 3.12 的标识（uv 装的会带命名空间）
-py -V:<标识> -m venv .venv
-.\.venv\Scripts\python -m pip install -e ".[dev]"
-.\.venv\Scripts\python -m pytest -q
+$env:PYTHONUTF8='1'                     # 中文路径必须；否则 Windows 按 ANSI 代码页读写
+
+# 先看这台机器上有哪个 3.12。`py -3.12` 只在官方安装包下有效；
+# uv 装的 Python 会被注册到命名空间里（如 Astral/CPython3.12.14），必须用全名。
+py -0                                   # 列出现有解释器与它们的标识
+py -3.12 -m venv .venv                  # 若上面显示的就是 3.12，用这行
+# 否则（uv / 其它命名空间）：
+# py -V:Astral/CPython3.12.14 -m venv .venv
+
+.venv\Scripts\python -m pip install -e ".[dev]"
+.venv\Scripts\python -m pytest -q
 ```
 
-## 21 个工具
+2026-10-21 在本机实测：`py -3.12` 报 exit=103（找不到），
+`py -V:Astral/CPython3.12.14` 正常。**不要照抄某台机器的绝对路径，先 `py -0` 看清单。**
 
-| 类别 | 工具 |
+`jieba` 首次分词会构建词典缓存（写到 `%TEMP%`），第一次跑会慢几秒，属正常。
+
+## 模型端点（都可覆盖）
+
+| 用途 | 默认 | 覆盖用的环境变量 |
+|---|---|---|
+| 主推理 / 嵌入 | `http://127.0.0.1:8080/v1`（LM Studio） | `CBB_LLM_BASE_URL`、`CBB_EMBEDDING_BASE_URL` |
+| Ollama 备选 | `http://127.0.0.1:11434` | `CBB_OLLAMA_BASE_URL` |
+| API key | 空 | `CBB_LLM_API_KEY`、`CBB_EMBEDDING_API_KEY` |
+| judge（异档验证） | 未配置 | `CBB_MCP_JUDGE_BASE_URL` |
+
+默认 **mock 引擎，不联网**；真实 LLM 只在 `--live` 下启用。没有模型服务时管线仍能跑完
+（推理类能力会记为 unavailable，不伪造结果）。
+
+## 命令
+
+```powershell
+.venv\Scripts\python -m cbb_stage1.cli lint-box ..\设计\抽取段-v6\example
+.venv\Scripts\python -m cbb_stage1.cli run --book <book> --chapters 1-3 --out artifacts\box-3ch
+.venv\Scripts\python -m cbb_stage1.cli run --book <book> --chapters 1 --live   # 走真实模型
+.venv\Scripts\python -m cbb_stage1.cli build-box --work <work> --out <box>
+.venv\Scripts\python -m cbb_stage1.cli acceptance acceptance\07.yaml
+```
+
+## 门禁（提交前应全绿）
+
+```powershell
+.venv\Scripts\python -X utf8 -m cbb_stage1.qc.id_sources          # ID 单一来源
+.venv\Scripts\python -X utf8 -m cbb_stage1.cli wiring             # 模块可达
+.venv\Scripts\python -m ruff check src\cbb_stage1 --select F401,F811,F841
+.venv\Scripts\python -m vulture src\cbb_stage1 .vulture_whitelist.py --min-confidence 80
+.venv\Scripts\python -X utf8 tools\call_wiring.py --root src\cbb_stage1     # 公开 API 是否真被调用
+.venv\Scripts\python -X utf8 tools\field_coverage.py <box>                  # 必填字段是否恒空
+```
+
+`tests/unit/test_portability.py` 把「换一台 Windows 11 机器还能跑」这件事也钉成了测试：
+源码里不许有绝对路径 / 用户名 / 桌面目录，端点必须可被环境变量覆盖，测试不许绑定本机路径。
+
+## 换机时的已知依赖
+
+| 依赖 | 说明 |
 |---|---|
-| 运行 | `cbb_start_run` `cbb_status` `cbb_next_requests` `cbb_reply` |
-| 建箱/校验 | `cbb_build_box` `cbb_lint_box` `cbb_field_coverage` `cbb_call_wiring` |
-| 门禁 | `cbb_gate`(wiring / id_sources / acceptance) |
-| 人裁 | `cbb_lexicon_list` `cbb_lexicon_approve` `cbb_supersede` `cbb_conflict_resolve` `cbb_quarantine_adjudicate` |
-| 模型 | `cbb_model_call` `cbb_model_stats` `cbb_model_drain` `cbb_model_policy` |
-| 其他 | `cbb_doctor` `cbb_capabilities` `cbb_smoke` |
-
-## 为什么是 MCP 而不是 CLI
-
-**实测**：用 CLI 型 MCP 客户端调 stdio server，**每次调用现起一个 server 进程**，
-8.4–16.8 秒/次；一万条回填光传输就 20+ 小时。托管连接后这个成本消失。
-
-**工具本身很快**：进程内实测 `cbb_status` 65 ms、`cbb_next_requests` 0.01 ms、
-`cbb_model_stats` 10 ms。所以正确的优化是托管传输，不是改工具。
-
-`cbb_start_run` 是唯一一处例外——它必须把长任务脱离出去（要活过这次工具调用），
-那是进程管理，不是把能力转手给 CLI。
-
-## 纪律
-
-- **I4**：谓词不许从数据里自己长出来。未注册谓词进 `proposed_predicates`，
-  必须人工批准（带 `by`）才能注册。
-- **I27**：`derived/inference/*` 只在派生层，每条带证据或统计口径，不参与硬门。
-- **人裁不删件**：裁决追加到 `audit/decisions.jsonl`，被裁的记录只被标注。
-- **测试的参照物是规范**，不是实现。
-
-## 门禁
-
-```powershell
-.\.venv\Scripts\python -X utf8 -m cbb_stage1.qc.id_sources
-.\.venv\Scripts\python -X utf8 -m cbb_stage1.cli wiring
-.\.venv\Scripts\python -m ruff check src\cbb_stage1 --select F401,F811,F841
-.\.venv\Scripts\python -m vulture src\cbb_stage1 .vulture_whitelist.py --min-confidence 80
-.\.venv\Scripts\python -X utf8 tools\call_wiring.py --root src\cbb_stage1
-```
-
-## 已知限制
-
-- 占位与代理件是**明标**的：`derived/inference/forecasts.jsonl` 的 `method` 字段写着
-  `lexical_singleton_ratio`，不是 E07 的原法；情绪曲线标 `lexical_polarity_window`，
-  不是 UED。
-- `cbb_start_run` 起的是独立进程；宿主环境若会连坐杀进程树，长跑会被打断。
-  判据：`plan/mcp-runs/*.pid.rc` 不存在就是被杀，不是自己退出的。
-- 推断层（动机链/情绪/主题）在单章上只能验证机制，不能验证价值。
-- **`example/` 箱子夹具不随仓库发布**（它由受版权保护的原文构建）。需要它的两条测试
-  （`test_box_hollowing_invariant` / `test_box_lint_example`）会在 clone 里具名 skip，
-  只在作者工作区运行。
-
-## 许可
-
-MIT，见 `LICENSE`。
+| 中文路径 | 所有 Python 调用带 `-X utf8` 或 `PYTHONUTF8=1`；git 看中文路径要 `-c core.quotepath=false` |
+| 录制夹具 | `tests/data/spk5-run/` 随仓库走（41 KB），不需要本机历史运行产物 |
+| 环境变量夹具 | 别的录制跑可用 `CBB_RECORDED_SPK5_WORK` 指向自己的 work 目录 |
+| 长路径 | 仓库内最长 121 字符；放到很深的目录时注意 Windows 260 上限 |

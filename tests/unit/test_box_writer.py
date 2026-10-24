@@ -35,8 +35,8 @@ FIXED = "2026-10-18T20:00:00+08:00"
 BOOK = "testbook"
 U1 = "u:testbook:v01:c001"
 U2 = "u:testbook:v01:c002"
-T1 = "我的名字叫贝塔心叶。他人的思想不由分说地在脑中响起。黑之魔王站在船头。"
-T2 = "研究所位于地下 267 层。贝塔心叶看着窗外的雨。"
+T1 = "我的名字叫言万心叶。他人的思想不由分说地在脑中响起。黑之魔王站在船头。"
+T2 = "研究所位于地下 267 层。言万心叶看着窗外的雨。"
 
 
 # ---------------------------------------------------------------------------
@@ -152,7 +152,7 @@ def make_rich_work(tmp_path: Path) -> Path:
     e_person = Entity(
         book_id=BOOK,
         type="person",
-        canonical_name="贝塔心叶",
+        canonical_name="言万心叶",
         aliases=["心叶"],
         tier="canonical",
         confidence=0.95,
@@ -177,7 +177,7 @@ def make_rich_work(tmp_path: Path) -> Path:
     output_1 = EngineOutput(
         unit_id=U1,
         mentions=[
-            _mention(U1, T1, "贝塔心叶"),
+            _mention(U1, T1, "言万心叶"),
             _mention(U1, T1, "心叶", alias=True),
             _mention(U1, T1, "黑之魔王"),
             # bad span => quarantined (surface not found)
@@ -196,7 +196,7 @@ def make_rich_work(tmp_path: Path) -> Path:
                 book_id=BOOK,
                 predicate="性质",
                 library="设定",
-                roles={"主体": "贝塔心叶", "值": {"literal": "能读取他人心声"}},
+                roles={"主体": "言万心叶", "值": {"literal": "能读取他人心声"}},
                 evidence=[_evidence(U1, T1, "他人的思想不由分说地在脑中响起")],
                 confidence=0.8,
                 confidence_method="evidence_span",
@@ -207,7 +207,7 @@ def make_rich_work(tmp_path: Path) -> Path:
                 book_id=BOOK,
                 predicate="赐予",
                 library="关系",
-                roles={"施主": "黑之魔王", "受者": "贝塔心叶"},
+                roles={"施主": "黑之魔王", "受者": "言万心叶"},
                 evidence=[_evidence(U1, T1, "黑之魔王站在船头")],
                 confidence=0.7,
                 status="asserted",
@@ -217,7 +217,7 @@ def make_rich_work(tmp_path: Path) -> Path:
                 book_id=BOOK,
                 predicate="性质",
                 library="设定",
-                roles={"主体": "贝塔心叶", "值": {"literal": "能读取他人心声"}},
+                roles={"主体": "言万心叶", "值": {"literal": "能读取他人心声"}},
                 evidence=[_evidence(U1, T1, "他人的思想不由分说地在脑中响起")],
                 claim_layer="statement",
                 speaker=Speaker(kind="narrator", name="叙述者"),
@@ -229,7 +229,7 @@ def make_rich_work(tmp_path: Path) -> Path:
                 book_id=BOOK,
                 predicate="性质",
                 library="设定",
-                roles={"主体": "贝塔心叶", "值": {"literal": "不存在的证据"}},
+                roles={"主体": "言万心叶", "值": {"literal": "不存在的证据"}},
                 evidence=[
                     Evidence(
                         unit_id=U1,
@@ -296,7 +296,7 @@ def make_rich_work(tmp_path: Path) -> Path:
 
     output_2 = EngineOutput(
         unit_id=U2,
-        mentions=[_mention(U2, T2, "研究所"), _mention(U2, T2, "贝塔心叶")],
+        mentions=[_mention(U2, T2, "研究所"), _mention(U2, T2, "言万心叶")],
         entities=[e_lab],
         assertions=[
             Assertion(
@@ -342,12 +342,12 @@ def make_rich_work(tmp_path: Path) -> Path:
         [
             {
                 "statement_assertion_id": statement_id,
-                "normalized_claim": "贝塔心叶能读取他人心声",
+                "normalized_claim": "言万心叶能读取他人心声",
                 "claim_type": "attribute",
                 "questions": [
                     {
                         "qid": "q1",
-                        "question": "贝塔心叶能读取什么？",
+                        "question": "言万心叶能读取什么？",
                         "answers": [
                             {
                                 "text": "他人心声",
@@ -385,7 +385,7 @@ def make_rich_work(tmp_path: Path) -> Path:
         work / "derive" / "hypotheses.jsonl",
         [
             {
-                "claim": "黑之魔王与贝塔心叶日后敌对",
+                "claim": "黑之魔王与言万心叶日后敌对",
                 "scope": "foreshadow",
                 "evidence_sufficiency": "insufficient",
                 "missing_premises": ["两人的直接冲突场景"],
@@ -664,7 +664,7 @@ def test_missing_work_root_raises(tmp_path):
 
 def test_valid_merge_is_applied_and_remains_reversible(tmp_path):
     work = tmp_path / "work"
-    text = "心叶与贝塔心叶同行。"
+    text = "心叶与言万心叶同行。"
     (work / "plan" / "texts" / "v01").mkdir(parents=True)
     (work / "plan" / "texts" / "v01" / "u001.txt").write_text(text, encoding="utf-8", newline="\n")
     _write_jsonl(
@@ -696,9 +696,9 @@ def test_valid_merge_is_applied_and_remains_reversible(tmp_path):
             ),
             Mention(
                 unit_id=U1,
-                surface="贝塔心叶",
-                start=text.index("贝塔心叶"),
-                end=text.index("贝塔心叶") + 4,
+                surface="言万心叶",
+                start=text.index("言万心叶"),
+                end=text.index("言万心叶") + 4,
                 entity_id=canonical_id,
             ),
         ],
@@ -715,7 +715,7 @@ def test_valid_merge_is_applied_and_remains_reversible(tmp_path):
                 entity_id=canonical_id,
                 book_id=BOOK,
                 type="person",
-                canonical_name="贝塔心叶",
+                canonical_name="言万心叶",
                 aliases=[],
                 tier="canonical",
             ),
@@ -778,11 +778,11 @@ def test_changed_units_drive_incremental_manifest_fields(tmp_path):
     assert manifest["parent"] == "testbook-w5-0000"
     assert incremental["parent"] == "testbook-w5-0000"
     assert incremental["changed_units"] == [U2]
-    # U2 mentions 研究所 + 贝塔心叶 → both entities are dirty.
+    # U2 mentions 研究所 + 言万心叶 → both entities are dirty.
     assert set(incremental["dirty_entities"]) == {
         row["entity_id"]
         for row in _read_jsonl(result.box / "identity" / "entities.jsonl")
-        if row["canonical_name"] in ("研究所", "贝塔心叶")
+        if row["canonical_name"] in ("研究所", "言万心叶")
     }
     summaries = _read_jsonl(result.box / "derived" / "summaries.jsonl")
     assert any(row["target"] == U2 and row["stale"] for row in summaries)

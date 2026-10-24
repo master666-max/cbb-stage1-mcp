@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cbb-box/2/decision.schema.json",
+  "title": "Human or Arbiter decision",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "decision_id",
+    "kind",
+    "subject",
+    "choice",
+    "decided_by",
+    "reason",
+    "at"
+  ],
+  "properties": {
+    "decision_id": {
+      "type": "string",
+      "pattern": "^d:"
+    },
+    "kind": {
+      "type": "string",
+      "minLength": 1
+    },
+    "subject": {
+      "type": "string",
+      "minLength": 1
+    },
+    "choice": {
+      "enum": [
+        "left",
+        "right",
+        "merge",
+        "disputed",
+        "superseded"
+      ]
+    },
+    "decided_by": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reason": {
+      "type": "string"
+    },
+    "at": {
+      "type": "string"
+    },
+    "winner": {
+      "type": "string"
+    }
+  }
+}

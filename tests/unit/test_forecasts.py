@@ -14,7 +14,7 @@ from cbb_stage1.derive.forecasts import METHOD, forecast_chapter
 
 
 def test_forecast_returns_a_chapter_scoped_theory_only_reading() -> None:
-    forecast = forecast_chapter("贝塔心叶走进大厅。黑之魔王在大厅。大厅很暗。")
+    forecast = forecast_chapter("言万心叶走进大厅。黑之魔王在大厅。大厅很暗。")
     assert forecast.scope == "chapter"
     assert forecast.theory is True
     assert 0.0 <= forecast.no_rate <= 1.0
@@ -22,7 +22,7 @@ def test_forecast_returns_a_chapter_scoped_theory_only_reading() -> None:
 
 
 def test_forecast_is_deterministic() -> None:
-    text = "贝塔心叶走进大厅。黑之魔王在大厅。大厅很暗。"
+    text = "言万心叶走进大厅。黑之魔王在大厅。大厅很暗。"
     assert forecast_chapter(text) == forecast_chapter(text)
 
 

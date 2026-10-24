@@ -43,7 +43,7 @@ class ProofEngine(_load_wired_engine()):
         assert isinstance(output, EngineOutput)
         events = list(output.events)
         for summary, expr in (
-            ("三日后，贝塔心叶走进大厅", "三日后"),
+            ("三日后，言万心叶走进大厅", "三日后"),
             ("次日，黑之魔王离开", "次日"),
         ):
             start = text.find(expr)
@@ -54,7 +54,7 @@ class ProofEngine(_load_wired_engine()):
                     book_id="t",
                     type="相遇",
                     summary=summary,
-                    participants=["贝塔心叶"],
+                    participants=["言万心叶"],
                     unit_id=unit_id,
                     evidence=[
                         Evidence(
@@ -76,7 +76,7 @@ def acceptance_run(tmp_path_factory):
     root = tmp_path_factory.mktemp("acceptance")
     book = root / "book.txt"
     book.write_text(
-        "# 第一章 起\n\n三日后，贝塔心叶走进大厅。次日，黑之魔王离开。\n",
+        "# 第一章 起\n\n三日后，言万心叶走进大厅。次日，黑之魔王离开。\n",
         encoding="utf-8",
     )
     cfg = Config(

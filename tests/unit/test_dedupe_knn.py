@@ -232,8 +232,8 @@ def test_dedupe_clusters_is_deterministic_across_runs():
 def test_run_records_knn_candidates_and_clusters_reversibly(tmp_path):
     work = tmp_path / "work"
     outputs = [
-        _output("u:t:v01:c001", [{"canonical_name": "贝塔心叶"}, {"canonical_name": "黑之魔王"}]),
-        _output("u:t:v01:c002", [{"canonical_name": "贝塔心叶 "}]),
+        _output("u:t:v01:c001", [{"canonical_name": "言万心叶"}, {"canonical_name": "黑之魔王"}]),
+        _output("u:t:v01:c002", [{"canonical_name": "言万心叶 "}]),
     ]
 
     result = run_dedupe(work, book_id="t", outputs=outputs, units=[], created_at="2026-10-19T00:00:00")
@@ -247,7 +247,7 @@ def test_run_records_knn_candidates_and_clusters_reversibly(tmp_path):
     assert result["counts"]["entity_knn_pairs"] == 1
 
     cards = _read_jsonl(work / "assemble" / "entity_cards.jsonl")
-    assert [card["canonical_name"] for card in cards] == ["贝塔心叶", "黑之魔王"]
+    assert [card["canonical_name"] for card in cards] == ["言万心叶", "黑之魔王"]
 
     dedupe_map = _read_json(work / "assemble" / "dedupe_map.json")
     assert dedupe_map["contract"] == "cbb-dedupe-map/1"
@@ -256,24 +256,24 @@ def test_run_records_knn_candidates_and_clusters_reversibly(tmp_path):
     assert entities["similarity"] == "jaccard"
     assert entities["lm_merger"] == "unavailable"
     assert entities["reversible"] is True
-    assert entities["mapping"]["贝塔心叶 "] == "贝塔心叶"
-    assert entities["clusters"] == [["贝塔心叶", "贝塔心叶 "], ["黑之魔王"]]
+    assert entities["mapping"]["言万心叶 "] == "言万心叶"
+    assert entities["clusters"] == [["言万心叶", "言万心叶 "], ["黑之魔王"]]
     assert entities["knn_candidates"] == [
-        {"a": "贝塔心叶", "b": "贝塔心叶 ", "similarity": 1.0}
+        {"a": "言万心叶", "b": "言万心叶 ", "similarity": 1.0}
     ]
     assert entities["knn"] == {"pairs": 1, "merger_calls": 0, "mergers_applied": 0}
     assert entities["stats"] == {"total": 3, "kept": 2, "duplicates": 1, "reduction": 33.3333}
     # Reversibility: the whole cluster stays recoverable from the map.
-    assert entities["mapping"]["贝塔心叶"] == "贝塔心叶"
+    assert entities["mapping"]["言万心叶"] == "言万心叶"
     assert any("lm merger unavailable" in warning for warning in result["warnings"])
 
 
 def test_run_with_merger_uses_the_lm_decision(tmp_path):
     work = tmp_path / "work"
-    merger = FakeMerger(["贝塔心叶 "])
+    merger = FakeMerger(["言万心叶 "])
     outputs = [
-        _output("u:t:v01:c001", [{"canonical_name": "贝塔心叶"}, {"canonical_name": "黑之魔王"}]),
-        _output("u:t:v01:c002", [{"canonical_name": "贝塔心叶 "}]),
+        _output("u:t:v01:c001", [{"canonical_name": "言万心叶"}, {"canonical_name": "黑之魔王"}]),
+        _output("u:t:v01:c002", [{"canonical_name": "言万心叶 "}]),
     ]
 
     result = run_dedupe(
@@ -281,22 +281,22 @@ def test_run_with_merger_uses_the_lm_decision(tmp_path):
         created_at="2026-10-19T00:00:00", merger=merger,
     )
 
-    assert merger.calls == [("贝塔心叶", "贝塔心叶 ")]
+    assert merger.calls == [("言万心叶", "言万心叶 ")]
     assert result["lm_merger"] == "provided"
     assert result["counts"]["entity_merger_applied"] == 1
 
     cards = _read_jsonl(work / "assemble" / "entity_cards.jsonl")
-    assert [card["canonical_name"] for card in cards] == ["贝塔心叶 ", "黑之魔王"]
+    assert [card["canonical_name"] for card in cards] == ["言万心叶 ", "黑之魔王"]
 
     entities = _read_json(work / "assemble" / "dedupe_map.json")["entities"]
     assert entities["lm_merger"] == "provided"
     assert entities["knn"]["mergers_applied"] == 1
     assert entities["mapping"] == {
-        "贝塔心叶": "贝塔心叶 ",
-        "贝塔心叶 ": "贝塔心叶 ",
+        "言万心叶": "言万心叶 ",
+        "言万心叶 ": "言万心叶 ",
         "黑之魔王": "黑之魔王",
     }
-    assert entities["clusters"] == [["贝塔心叶", "贝塔心叶 "], ["黑之魔王"]]
+    assert entities["clusters"] == [["言万心叶", "言万心叶 "], ["黑之魔王"]]
 
 
 def test_run_with_threshold_override_changes_clustering(tmp_path):

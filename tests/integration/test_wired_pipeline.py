@@ -68,7 +68,7 @@ class WiredFixtureEngine(Engine):
     """Synthetic EngineOutput: two entities, relation + statement assertion, event, cue."""
 
     def extract(self, unit_id, text, card, known_entities):
-        start = text.find("贝塔心叶")
+        start = text.find("言万心叶")
         if start < 0:
             start = 0
         quote = text[start : start + 4]
@@ -94,7 +94,7 @@ class WiredFixtureEngine(Engine):
                 Entity(
                     book_id="t",
                     type="person",
-                    canonical_name="贝塔心叶",
+                    canonical_name="言万心叶",
                     aliases=[],
                     tier="canonical",
                 ),
@@ -110,7 +110,7 @@ class WiredFixtureEngine(Engine):
                     book_id="t",
                     predicate="亲属",
                     library="关系",
-                    roles={"施事": "贝塔心叶", "受事": "黑之魔王"},
+                    roles={"施事": "言万心叶", "受事": "黑之魔王"},
                     evidence=[evidence],
                     confidence=0.9,
                     confidence_method="evidence_span",
@@ -120,7 +120,7 @@ class WiredFixtureEngine(Engine):
                     book_id="t",
                     predicate="性质",
                     library="设定",
-                    roles={"主体": "贝塔心叶", "值": {"literal": "看见影子"}},
+                    roles={"主体": "言万心叶", "值": {"literal": "看见影子"}},
                     claim_layer="statement",
                     speaker={"kind": "narrator", "name": "叙述者"},
                     evidence=[evidence],
@@ -133,8 +133,8 @@ class WiredFixtureEngine(Engine):
                 Event(
                     book_id="t",
                     type="相遇",
-                    summary="贝塔心叶走近黑之魔王",
-                    participants=["贝塔心叶", "黑之魔王"],
+                    summary="言万心叶走近黑之魔王",
+                    participants=["言万心叶", "黑之魔王"],
                     unit_id=unit_id,
                     evidence=[evidence],
                 )
@@ -155,8 +155,8 @@ class WiredFixtureEngine(Engine):
 def _write_book(tmp_path: Path) -> Path:
     book = tmp_path / "book.txt"
     book.write_text(
-        "# 第1章 起\n\n贝塔心叶走近黑之魔王。她的影子是苍蓝色的。\n\n"
-        "# 第2章 承\n\n贝塔心叶说：「我看见了。」黑之魔王没有回答。\n",
+        "# 第1章 起\n\n言万心叶走近黑之魔王。她的影子是苍蓝色的。\n\n"
+        "# 第2章 承\n\n言万心叶说：「我看见了。」黑之魔王没有回答。\n",
         encoding="utf-8",
     )
     return book

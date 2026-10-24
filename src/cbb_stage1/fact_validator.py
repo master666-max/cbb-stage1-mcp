@@ -201,11 +201,41 @@ def _coerce_output(output: EngineOutput | dict[str, Any]) -> EngineOutput:
     return output if isinstance(output, EngineOutput) else EngineOutput.model_validate(output)
 
 
+#: Detector key -> the names it may appear under, in the order they are tried.
+#:
+#: `roles` carries the registered role names the assembler produces (`主体`/`值`/`施事`), while
+#: `normalize/predicate_map.py` puts everything the detector needs into `qualifiers`
+#: (`dimension`, `ability_name`, `parent`, `relation_type`, ...). Before this table existed the
+#: detectors asked only for `entity`/`dimension`/`name`/`parent` in `roles`, none of which the
+#: normalizer writes, so every input conflict check returned nothing on real data.
+_ROLE_ALIASES: dict[str, tuple[str, ...]] = {
+    "entity": ("entity", "主体", "施事", "subject"),
+    "location": ("location", "entity", "主体"),
+    "value": ("value", "值"),
+    "name": ("name", "ability_name", "ability"),
+    "ability": ("ability", "ability_name", "name"),
+    "parent": ("parent",),
+    "dimension": ("dimension",),
+    "member": ("member", "成员", "entity", "主体"),
+    "relation_type": ("relation_type", "关系类型"),
+    "distance_class": ("distance_class",),
+}
+
+
 def _role(assertion: Assertion, *keys: str) -> str:
+    """Read one role-ish value from `roles` or `qualifiers`, following the alias table.
+
+    `roles` wins over `qualifiers` and an exact key wins over an alias, so an assertion that
+    carries both shapes keeps the older, more specific answer.
+    """
+    roles = assertion.roles if isinstance(assertion.roles, dict) else {}
+    qualifiers = assertion.qualifiers if isinstance(assertion.qualifiers, dict) else {}
     for key in keys:
-        value = assertion.roles.get(key)
-        if isinstance(value, str) and value.strip():
-            return value.strip()
+        for candidate in _ROLE_ALIASES.get(key, (key,)):
+            for source in (roles, qualifiers):
+                value = source.get(candidate)
+                if isinstance(value, str) and value.strip():
+                    return value.strip()
     return ""
 
 

@@ -109,15 +109,53 @@ def _primary_volume(members: Iterable[str], entity_volumes: Mapping[str, Any]) -
     return sorted(counts.items(), key=lambda item: (-item[1], item[0]))[0][0]
 
 
+def _assertion_unit(assertion: Mapping[str, Any]) -> str:
+    """The unit an assertion came from, from its own field or its first evidence item."""
+    unit = str(assertion.get("unit_id") or "")
+    if unit:
+        return unit
+    for item in assertion.get("evidence") or ():
+        if isinstance(item, Mapping):
+            value = str(item.get("unit_id") or "")
+            if value:
+                return value
+    return ""
+
+
 def _level1_rows(
     book_id: str,
     assertions: Iterable[Mapping[str, Any]],
     *,
     produced_by: str,
 ) -> list[dict[str, Any]]:
+    assertion_rows = list(assertions)
     rows: list[dict[str, Any]] = []
-    for members in _level1_components(assertions):
+    for members in _level1_components(assertion_rows):
         community_id = _community_id(book_id, _LEVEL1, members)
+        member_set = set(members)
+        # A19: the relations that bind this community, and the units they came from. `member_entities`
+        # says who is in it; without these the report cannot say what holds it together or where to
+        # check the summary against the text.
+        relationship_ids: list[str] = []
+        unit_ids: list[str] = []
+        for assertion in assertion_rows:
+            roles = _entity_ids(assertion.get("roles") or {})
+            if not roles or not set(roles).issubset(member_set):
+                continue
+            assertion_id = str(assertion.get("assertion_id") or "")
+            if assertion_id and assertion_id not in relationship_ids:
+                relationship_ids.append(assertion_id)
+            unit = _assertion_unit(assertion)
+            if unit and unit not in unit_ids:
+                unit_ids.append(unit)
+        relationship_ids.sort()
+        unit_ids.sort()
+        # A one-unit community has first == last rather than no span: "no span" and "a span of one" are
+        # different answers.
+        period = {
+            "first_unit": unit_ids[0] if unit_ids else None,
+            "last_unit": unit_ids[-1] if unit_ids else None,
+        }
         rows.append(
             {
                 "report_id": _report_id(community_id),
@@ -126,6 +164,10 @@ def _level1_rows(
                 "community_id": community_id,
                 "parent_id": None,
                 "member_entities": members,
+                "relationship_ids": relationship_ids,
+                "text_unit_ids": unit_ids,
+                "size": len(members),
+                "period": period,
                 "title": None,
                 "summary": None,
                 "evidence": [],
@@ -264,6 +306,27 @@ def build_community_reports(
             for entity_id in _entity_ids(assertion.get("roles") or {}):
                 if len(related[entity_id]) < 8:
                     related[entity_id].append(snippet)
+        # C5/D13: when the rows form a tree, summarise children first and let a parent combine them. The flat
+        # loop below remains the behaviour for a single-level table, where there is nothing to reduce.
+        has_parents = any(
+            row.get("parent_id") is not None
+            and any(
+                str(other.get("community_id")) == str(row.get("parent_id")) for other in result
+            )
+            for row in result
+        )
+        if has_parents:
+            from cbb_stage1.derive.reduce import summarise_tree
+
+            assertion_index = {
+                str(assertion.get("assertion_id")): assertion
+                for assertion in assertion_rows
+                if assertion.get("assertion_id")
+            }
+            # `summarise_tree` writes titles/summaries back onto these same dicts, so the caller sees them.
+            summarise_tree(result, summarizer=summarizer, assertions=assertion_index)
+            return result
+
         for row in result:
             member_lines: list[str] = []
             source_ids: list[str] = []

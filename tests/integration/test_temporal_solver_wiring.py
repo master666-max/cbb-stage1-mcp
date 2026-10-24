@@ -16,7 +16,7 @@ def _write(path: Path, rows: list[dict]) -> None:
 
 def test_temporal_solver_consumes_extracted_time_expressions(tmp_path):
     work = tmp_path / "work"
-    text = "三日后，贝塔心叶抵达。次日，黑之魔王离开。"
+    text = "三日后，言万心叶抵达。次日，黑之魔王离开。"
     text_path = work / "plan" / "texts" / "u001.txt"
     text_path.parent.mkdir(parents=True, exist_ok=True)
     text_path.write_text(text, encoding="utf-8")
@@ -33,7 +33,7 @@ def test_temporal_solver_consumes_extracted_time_expressions(tmp_path):
             "event_id": "ev:" + "1" * 16,
             "unit_id": unit["unit_id"],
             "type": "抵达",
-            "summary": "三日后，贝塔心叶抵达",
+            "summary": "三日后，言万心叶抵达",
             "evidence": [{"unit_id": unit["unit_id"], "start": 0, "end": 3, "quote": "三日后"}],
         },
         {

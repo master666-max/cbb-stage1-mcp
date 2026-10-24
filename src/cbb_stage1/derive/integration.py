@@ -31,7 +31,9 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 from cbb_stage1 import ids
+from cbb_stage1.orchestrator.parallel import stage_workers
 from cbb_stage1.derive.community import build_community_reports
+from cbb_stage1.derive.summary_order import annotate_summaries, unit_order_map
 from cbb_stage1.derive.forecasts import forecast_chapter
 from cbb_stage1.derive.hypotheses import abduce
 from cbb_stage1.derive.raptor import build_raptor_clusters
@@ -157,20 +159,26 @@ def _conflict_hypotheses(
             scope="setting",
             llm=llm,
         )
-        missing = (
-            list(reasoning.hypothesis.missing_premises)
-            if reasoning.hypothesis is not None
-            else []
-        )
+        source = reasoning.hypothesis
+        missing = list(source.missing_premises) if source is not None else []
+        # Abductive RAG's dual check is the reason this step exists, and `score()` is already being
+        # called — its answer used to be dropped here, so every row read unknown/unknown/0.0 no
+        # matter what the model judged. `None` means "no check happened" and maps to unknown.
+        consistency = str(getattr(source, "consistency", None) or "unknown")
+        plausibility = str(getattr(source, "plausibility", None) or "unknown")
+        confidence = float(getattr(source, "confidence", 0.0) or 0.0)
         hypothesis = abduce(
             book_id,
             (
-                reasoning.hypothesis.claim
-                if reasoning.hypothesis is not None
+                source.claim
+                if source is not None
                 else f"冲突 {conflict_id} 需要补充原文证据后才能裁决"
             ),
             scope="setting",
             missing_premises=missing or ["额外章节/场景的原文证据"],
+            consistency=consistency,
+            plausibility=plausibility,
+            confidence=confidence,
             derived_from=[left, right],
             created_at=created_at,
         )
@@ -227,7 +235,10 @@ def run(
     if units:
         unit_summaries = _summary_texts(upstream)
         if aux_llm is not None and bool(getattr(config, "summary_synthesis", True)):
-            synthesized = synthesize_unit_summaries(units, unit_texts, aux_llm)
+            synthesized = synthesize_unit_summaries(
+                units, unit_texts, aux_llm,
+                workers=stage_workers(upstream, len(units)),
+            )
             synthesized.update(unit_summaries)  # explicit upstream wins
             unit_summaries = synthesized
             if not unit_summaries:
@@ -239,7 +250,11 @@ def run(
             volume_titles=_volume_titles(upstream),
             produced_by="derive:integration",
         )
-        summary_records = summary_rows(tree)
+        # F4: an aggregate text must state how far it reaches, because the disclosure gate withholds it
+        # whole rather than trimming (a half summary misleads) and refuses to guess the position.
+        summary_records = annotate_summaries(
+            summary_rows(tree), unit_order_map(units)
+        )
         if aux_llm is not None and bool(getattr(config, "summary_synthesis", True)):
             summary_records = synthesize_tree_texts(summary_records, aux_llm)
     else:
@@ -295,12 +310,30 @@ def run(
             max_levels = max(1, int(upstream.get("raptor_max_levels") or 4))
         except (TypeError, ValueError):
             max_levels = 4
+    # A25: the recursive loop needs a summariser. Without one `text` is None at every level, and the
+    # tree groups raw unit text instead of clustering summaries — the step the paper is built on.
+    raptor_summariser = None
+    aux_llm = upstream.get("llm") if isinstance(upstream, Mapping) else None
+    if aux_llm is not None:
+        def raptor_summariser(texts: list[str]) -> str:  # type: ignore[misc]
+            """Summarise one cluster. The prompt asks only for condensation, never for new facts."""
+            joined = "\n".join(texts)
+            prompt = (
+                "把下面这些章节片段压缩成一段摘要，只保留它们共同涉及的实体、事件与结果。"
+                "不得添加原文没有的信息，不得推测。\n\n" + joined
+            )
+            try:
+                return str(aux_llm.generate(prompt) or "").strip()
+            except Exception:  # noqa: BLE001 - a failed summary must not drop the cluster
+                return ""
+
     raptor_rows = (
         build_raptor_clusters(
             book_id,
             units,
             unit_texts,
             embedder=embedder,
+            summariser=raptor_summariser,
             max_levels=max_levels,
         )
         if units
@@ -340,12 +373,45 @@ def run(
     entity_volumes = _entity_volumes(work_root, units)
     aux_llm = upstream.get("llm") if isinstance(upstream, Mapping) else None
     community_summarizer = aux_llm.generate if aux_llm is not None else None
+    parent_communities: list[dict[str, Any]] = []
+    if isinstance(upstream, Mapping) and upstream.get("incremental"):
+        # A20/D6: when a parent box is reachable, append rather than rebuild. Reading the parent is the only
+        # way to know, and a failure here must fall back to the full rebuild rather than to silence.
+        parent_candidate = upstream.get("incremental_parent")
+        if parent_candidate:
+            try:
+                from cbb_stage1.box import atomic as _atomic
+
+                parent_path = Path(str(parent_candidate)) / "derived" / "community.jsonl"
+                if parent_path.is_file():
+                    parent_communities = [
+                        dict(row) for row in _atomic.read_jsonl(parent_path) if isinstance(row, Mapping)
+                    ]
+            except Exception as exc:  # noqa: BLE001 - a bad parent must not lose the stage
+                warnings.append(
+                    f"incremental: parent communities unreadable ({type(exc).__name__}: {exc}); "
+                    "falling back to a full rebuild"
+                )
+                parent_communities = []
+
     community_records = build_community_reports(
         book_id,
         _read_jsonl(work_root / "assemble" / "assertions.jsonl"),
         entity_volumes=entity_volumes or None,
         summarizer=community_summarizer,
     )
+    if parent_communities:
+        # Shift this run's ids past the parent's, then concatenate. The mapping is what a report table has to
+        # apply, so it is produced here and reused below.
+        from cbb_stage1.incremental.append import append_communities
+
+        community_records, _community_mapping = append_communities(
+            parent_communities, community_records
+        )
+        warnings.append(
+            f"incremental: appended {len(community_records) - len(parent_communities)} "
+            f"communities onto {len(parent_communities)} from the parent box"
+        )
     _write_jsonl(community_path, community_records)
     if not community_records:
         warnings.append("community table empty: no entity-role edge with >=2 entities")

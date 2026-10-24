@@ -51,8 +51,8 @@ from cbb_stage1.normalize.facts import chapter_fact_to_engine_output
 from cbb_stage1.resolve.integration import run as resolve_run
 
 TEXT = (
-    "贝塔心叶与拉斐尔是朋友。贝塔心叶穿着黑色夹克。"
-    "神殿在太平洋之上。低语者是一种能力。黑手党把贝塔心叶逐出。"
+    "言万心叶与拉斐尔是朋友。言万心叶穿着黑色夹克。"
+    "神殿在太平洋之上。低语者是一种能力。黑手党把言万心叶逐出。"
 )
 UNIT = "u:seam:1"
 
@@ -64,7 +64,7 @@ def _fact() -> ChapterFact:
         novel_id="seam",
         characters=[
             CharacterFact(
-                name="贝塔心叶",
+                name="言万心叶",
                 appearance="穿着黑色夹克",
                 abilities_gained=[
                     AbilityGained(
@@ -74,16 +74,16 @@ def _fact() -> ChapterFact:
                         evidence="低语者是一种能力。",
                     )
                 ],
-                evidence="贝塔心叶穿着黑色夹克。",
+                evidence="言万心叶穿着黑色夹克。",
             ),
-            CharacterFact(name="拉斐尔", evidence="贝塔心叶与拉斐尔是朋友。"),
+            CharacterFact(name="拉斐尔", evidence="言万心叶与拉斐尔是朋友。"),
         ],
         relationships=[
             RelationshipFact(
-                person_a="贝塔心叶",
+                person_a="言万心叶",
                 person_b="拉斐尔",
                 relation_type="师徒",
-                evidence="贝塔心叶与拉斐尔是朋友。",
+                evidence="言万心叶与拉斐尔是朋友。",
             )
         ],
         locations=[
@@ -118,25 +118,25 @@ def _fact() -> ChapterFact:
                 item_name="糖",
                 item_type="食物",
                 action="赠予",
-                actor="贝塔心叶",
-                evidence="贝塔心叶穿着黑色夹克。",
+                actor="言万心叶",
+                evidence="言万心叶穿着黑色夹克。",
             )
         ],
         org_events=[
             OrgEventFact(
                 org_name="黑手党",
                 org_type="组织",
-                member="贝塔心叶",
+                member="言万心叶",
                 action="逐出",
-                evidence="黑手党把贝塔心叶逐出。",
+                evidence="黑手党把言万心叶逐出。",
             )
         ],
         events=[
             EventFact(
                 summary="两人交谈",
                 type="社交",
-                participants=["贝塔心叶"],
-                evidence="贝塔心叶与拉斐尔是朋友。",
+                participants=["言万心叶"],
+                evidence="言万心叶与拉斐尔是朋友。",
             )
         ],
     )

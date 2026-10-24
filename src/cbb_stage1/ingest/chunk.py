@@ -179,14 +179,54 @@ class Chunk:
 
 
 def split_long_paragraph(para: str, max_chars: int) -> list[str]:
-    """Split an over-long paragraph on sentence boundaries.
+    """Split an over-long paragraph through a separator cascade.
 
-    A single sentence longer than ``max_chars`` is hard-cut at ``max_chars``
-    (deterministic; the engine window must not be exceeded).
+    Levels, coarsest first — the same order the source's recursive splitter uses:
+
+    1. ``\\n`` — keep whole lines and pack them under the limit. Dialogue and scene lists are
+       paragraphs of single-newline lines, and cutting them at a ``。`` inside a line throws the
+       structure away (measured: ``他抬头，看着窗外的雨。2`` became ``…。`` plus a stray ``2``);
+    2. sentence ends — for a line that is itself too long;
+    3. a hard cut at ``max_chars`` — only when a single sentence exceeds the limit, because the engine
+       window is a hard bound rather than a preference.
     """
     if len(para) <= max_chars:
         return [para]
 
+    if "\n" in para:
+        packed = _pack_lines(para, max_chars)
+        # A line can still be too long: hand just those to the sentence level.
+        result: list[str] = []
+        for piece in packed:
+            if len(piece) <= max_chars:
+                result.append(piece)
+            else:
+                result.extend(_split_sentences(piece, max_chars))
+        return result or [para]
+
+    return _split_sentences(para, max_chars)
+
+
+def _pack_lines(para: str, max_chars: int) -> list[str]:
+    """Pack whole lines into pieces under ``max_chars``, never cutting a line."""
+    pieces: list[str] = []
+    current: list[str] = []
+    size = 0
+    for line in para.split("\n"):
+        addition = len(line) + (1 if current else 0)
+        if current and size + addition > max_chars:
+            pieces.append("\n".join(current))
+            current, size = [line], len(line)
+        else:
+            current.append(line)
+            size += addition
+    if current:
+        pieces.append("\n".join(current))
+    return pieces
+
+
+def _split_sentences(para: str, max_chars: int) -> list[str]:
+    """Sentence-level split; hard-cuts a single sentence that exceeds the limit."""
     sentences = [part for part in _SENT_SPLIT.split(para) if part]
     pieces: list[str] = []
     current = ""
@@ -332,12 +372,52 @@ def _structural_parts(
             if merged_len <= max_chars:
                 blocks[-2].extend(blocks.pop())
 
+    blocks = _attach_orphan_headings(blocks)
+
     reason = (
         "big_first"
         if len(blocks) == 1
         else ("sentence_fallback" if sentence_fallback else "structural_aggregate")
     )
     return [("\n\n".join(block), reason) for block in blocks]
+
+
+def _is_heading_only(parts: list[str]) -> bool:
+    """True when a block's entire content is one heading line."""
+    joined = "\n\n".join(part.strip() for part in parts if part.strip())
+    if not joined or "\n" in joined:
+        return False
+    return bool(_HEADING_LINE.match(joined))
+
+
+def _attach_orphan_headings(blocks: list[list[str]]) -> list[list[str]]:
+    """Move a heading-only block onto the front of the block that follows it.
+
+    A13 ②: with a heading followed by an oversized paragraph, the paragraph is split away and the heading
+    is left as a chunk of its own — no text to extract from, and the body chunk loses its section. The
+    structural boundaries are otherwise untouched, because the big-first rule is a v6 decision.
+
+    A trailing heading with nothing after it stays put: there is nowhere to move it, and dropping it
+    would lose content.
+    """
+    if len(blocks) < 2:
+        return blocks
+    result: list[list[str]] = []
+    carry: list[str] = []
+    for block in blocks:
+        block = carry + block
+        carry = []
+        if _is_heading_only(block):
+            carry = block
+            continue
+        result.append(block)
+    if carry:
+        # A heading at the very end: keep it rather than lose it.
+        if result:
+            result[-1] = result[-1] + carry
+        else:
+            result.append(carry)
+    return result
 
 
 # ── fixed window ────────────────────────────────────────────────

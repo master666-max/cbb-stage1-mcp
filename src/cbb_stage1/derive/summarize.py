@@ -9,6 +9,8 @@ from __future__ import annotations
 import re
 from typing import Any, Iterable, Mapping
 
+from cbb_stage1.orchestrator.parallel import run_ordered
+
 __all__ = ["synthesize_unit_summaries", "synthesize_tree_texts"]
 
 _MAX_SOURCE_CHARS = 12000
@@ -25,11 +27,22 @@ def synthesize_unit_summaries(
     units: Iterable[Mapping[str, Any]],
     unit_texts: Mapping[str, str],
     llm: Any,
+    *,
+    workers: int = 1,
 ) -> dict[str, str]:
-    """unit_id -> 2–4 sentence Chinese summary; missing LLM/empty -> {}."""
+    """unit_id -> 2–4 sentence Chinese summary; missing LLM/empty -> {}.
+
+    Units are independent, so they are summarised concurrently when ``workers > 1``. The count
+    is explicit rather than read from a config: this module has no view of the run's policy,
+    and the derive stage owns that decision.
+
+    Last-wins is preserved for a repeated ``unit_id``: the dict assignment below does exactly
+    what the serial loop did, so parallel and serial runs agree.
+    """
     if llm is None:
         return {}
-    out: dict[str, str] = {}
+
+    prepared: list[tuple[str, str]] = []
     for unit in units:
         unit_id = str(unit.get("unit_id") or "")
         text = (unit_texts.get(unit_id) or "").strip()
@@ -40,10 +53,20 @@ def synthesize_unit_summaries(
             "不补充原文没有的事实。\n\n"
             f"{text[:_MAX_SOURCE_CHARS]}"
         )
+        prepared.append((unit_id, prompt))
+
+    def _summarise(item: tuple[str, str]) -> tuple[str, str]:
+        unit_id, prompt = item
         try:
-            summary = _clean(llm.generate(prompt))
+            return unit_id, _clean(llm.generate(prompt))
         except Exception:  # noqa: BLE001 - no fabricated summary on failure
-            continue
+            return unit_id, ""
+
+    results = run_ordered(
+        prepared, _summarise, workers=workers, thread_name_prefix="cbb-derive"
+    )
+    out: dict[str, str] = {}
+    for unit_id, summary in results:
         if summary:
             out[unit_id] = summary
     return out

@@ -28,6 +28,18 @@ same shape with deterministic, dependency-free pure functions:
 * :func:`dedupe_relations` / :func:`dedupe_graph` -- apply the mapping to
   triples / entities / edges, mirroring ``run_semhash_deduplication``.
 
+Deliberate method differences from C01 (A12 — the shape matches, the measuring does not):
+
+* **clustering**: C01 runs KMeans into about 128 clusters; this uses KNN candidate pairs plus connected
+  components. Components chain, so a long drift of near-variants can collapse into one group where KMeans
+  would have split it;
+* **retrieval**: C01 retrieves candidates with BM25 plus vectors, top-16; this uses token-bag Jaccard, or
+  cosine when an ``embedder`` is injected, and has no BM25 at all. A rare surface form that BM25 would have
+  surfaced can be missed;
+* **merge output**: C01's LM step returns a ``duplicates`` set **and an alias**; this returns the chosen
+  representative only. A consumer expecting an alias will get ``None``, which is why the field is named
+  ``representative`` rather than ``alias``.
+
 Deliberate boundaries:
 
 * ``semhash`` is the deterministic default. ``lm_based`` / ``full`` require an
@@ -581,6 +593,7 @@ def dedupe_clusters(
     top_k: int | None = None,
     merger: ClusterMerger | None = None,
     embedder: Any | None = None,
+    merge_workers: int = 1,
 ) -> ClusterDedupeResult:
     """Cluster near-duplicates over the KNN graph (transitive union).
 
@@ -596,6 +609,12 @@ def dedupe_clusters(
     the first-seen member unless ``merger`` (the optional LM decision) returns
     another member; without a merger the result is explicitly
     ``lm_merger="unavailable"``. The mapping/clusters stay reversible.
+
+    ``merge_workers`` asks the merger for several clusters at once. Clusters are
+    independent — a canonical choice depends only on that cluster's members — so this is a
+    scheduling change only: ``selected``, ``clusters``, ``mapping`` and the two counters keep
+    their serial values and their order. The caller owns the policy; this module does not
+    read the run's configuration.
     """
     threshold = _check_threshold(threshold)
     top_k = _check_top_k(top_k)
@@ -637,12 +656,35 @@ def dedupe_clusters(
     clusters: list[tuple[str, ...]] = []
     mapping: dict[str, str] = {}
     merger_calls = merger_mergers_applied = 0
-    for member_indices in index_clusters:
-        members = [values[index] for index in member_indices]
+    member_groups = [
+        [values[index] for index in member_indices] for member_indices in index_clusters
+    ]
+
+    # One question per multi-member cluster, asked concurrently. `positions` keeps the
+    # answers addressable by cluster so the application below stays in cluster order.
+    positions = [
+        position
+        for position, members in enumerate(member_groups)
+        if merger is not None and len(members) > 1
+    ]
+    if positions:
+        from cbb_stage1.orchestrator.parallel import run_ordered
+
+        choices = run_ordered(
+            [tuple(member_groups[position]) for position in positions],
+            merger.merge,
+            workers=max(1, int(merge_workers)),
+            thread_name_prefix="cbb-dedupe",
+        )
+    else:
+        choices = []
+    choice_at = dict(zip(positions, choices))
+
+    for position, members in enumerate(member_groups):
         canonical = members[0]
         if merger is not None and len(members) > 1:
             merger_calls += 1
-            choice = merger.merge(tuple(members))
+            choice = choice_at[position]
             if choice is not None:
                 if not isinstance(choice, str) or choice not in members:
                     raise DedupeRuleError(

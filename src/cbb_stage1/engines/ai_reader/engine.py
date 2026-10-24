@@ -436,8 +436,14 @@ class AiReaderEngine:
             book_id=book_id,
             extra_notes=notes,
         )
-        if gleaning_round:
-            output.notes.append(f"gleaning_round={gleaning_round} (unsupported in openie mode)")
+        # `gleaning_round` is what a consumer reads to know whether extra passes ran. OpenIE is a
+        # single two-stage pass, so the field must be 0 even when a budget was requested — otherwise
+        # the artifact claims rounds that never happened.
+        output.gleaning_round = 0
+        if max_rounds > 0:
+            output.notes.append(
+                "openie mode: requested gleaning rounds were not run (single two-stage pass)"
+            )
         return output
 
     # ── context assembly ────────────────────────────────────────

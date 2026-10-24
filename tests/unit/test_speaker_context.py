@@ -25,7 +25,7 @@ from pathlib import Path
 from cbb_stage1.validate.integration import _quote_context, _unit_text_index
 
 UNIT = "u:t:v01:c001"
-TEXT = "第一段。\n\n「嗯？怎么了贝塔同学。你怕狗吗？」\n\n「这家伙…… 就是源体……──这个终末的源头。」\n\n（这么小只。）"
+TEXT = "第一段。\n\n「嗯？怎么了言万同学。你怕狗吗？」\n\n「这家伙…… 就是母体……──这个终末的源头。」\n\n（这么小只。）"
 
 
 def _work(root: Path, *, volume: int = 1, order: int = 1) -> None:
@@ -74,7 +74,7 @@ def test_the_context_includes_the_neighbouring_lines(tmp_path: Path) -> None:
     root = tmp_path / "work"
     _work(root)
     text = _unit_text_index(root)[UNIT]
-    quote = "「这家伙…… 就是源体……──这个终末的源头。」"
+    quote = "「这家伙…… 就是母体……──这个终末的源头。」"
 
     context = _quote_context(text, quote)
 

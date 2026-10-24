@@ -106,3 +106,39 @@ def write_receipt(work: Path, receipt: Receipt) -> str:
 
 def write_verdict(work: Path, verdict: Verdict) -> str:
     return _atomic_json(work / "verify" / f"{_safe_name(verdict.task_id)}.json", verdict.to_dict())
+
+#: Where the exec receipt contract lives, relative to a resolved schema directory.
+EXEC_RECEIPT_SCHEMA = "exec/receipt.schema.json"
+
+
+def receipt_contract_gaps() -> tuple[str, ...]:
+    """Fields the exec receipt schema requires that :class:`Receipt` does not carry.
+
+    The shortfall is real and unresolved, not a formatting difference: `schemas/exec/receipt
+    .schema.json` demands 14 fields and `Receipt` carries five. Two of the missing ones cannot be
+    supplied honestly here — `tokens` and `cost_usd` need usage reporting that the `host` transport
+    does not provide, and writing zeros would assert "no tokens were used", which is a fabricated
+    number of exactly the kind this project forbids elsewhere.
+
+    Computed from the schema rather than listed by hand, so it cannot go stale: a field added to
+    `Receipt` shrinks the tuple, and a field added to the schema grows it.
+
+    Returns:
+        Sorted, de-duplicated field names. Empty would mean the contract is met.
+    """
+    import json
+
+    from cbb_stage1 import schemas
+
+    for directory in schemas.candidate_dirs():
+        path = directory / EXEC_RECEIPT_SCHEMA
+        if not path.is_file():
+            continue
+        try:
+            contract = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        required = contract.get("required") or ()
+        carried = set(Receipt.__dataclass_fields__)
+        return tuple(sorted({str(name) for name in required} - carried))
+    return ()

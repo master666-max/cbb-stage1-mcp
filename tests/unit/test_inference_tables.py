@@ -35,8 +35,8 @@ from cbb_stage1.schemas import schemas_dir
 SCHEMAS = schemas_dir(ROOT)
 
 TEXT = (
-    "那里，是巨大的某湖泊，腐朽的大楼沉没其中。\n\n"
-    "「阿尔法小姐，那里是出口！」\n\n"
+    "那里，是巨大的蓝色湖泊，腐朽的大楼沉没其中。\n\n"
+    "「露娜小姐，那里是出口！」\n\n"
     "湖的浅滩上，有什么小东西在滚动。\n\n"
     "「好。把它毁掉吧。」\n\n"
     "我不由得接受了──这个世界为何如此极端。"
@@ -60,17 +60,17 @@ def test_themes_count_nouns_not_clause_fragments() -> None:
 
 
 def test_a_recurring_motif_is_ranked_above_a_single_mention() -> None:
-    text = "小兽来了。小兽走了。小兽又叫。某湖泊在那里。"
+    text = "小狗来了。小狗走了。小狗又叫。蓝色湖泊在那里。"
     motifs = [motif for motif, _total, _units in count_motifs({UNIT: text})]
-    if "小兽" in motifs and "某湖泊" in motifs:
-        assert motifs.index("小兽") < motifs.index("某湖泊")
+    if "小狗" in motifs and "蓝色湖泊" in motifs:
+        assert motifs.index("小狗") < motifs.index("蓝色湖泊")
 
 
 def test_themes_record_which_units_carry_the_motif() -> None:
-    rows = build_themes("t", {"u:t:v01:c001": "小兽来了。", "u:t:v01:c002": "小兽又叫。"})
+    rows = build_themes("t", {"u:t:v01:c001": "小狗来了。", "u:t:v01:c002": "小狗又叫。"})
     if not rows:
         pytest.skip("jieba produced no noun for this sample")
-    row = next(row for row in rows if row["motif"] == "小兽")
+    row = next(row for row in rows if row["motif"] == "小狗")
     assert set(row["units"]) == {"u:t:v01:c001", "u:t:v01:c002"}
     assert row["unit_counts"] == {"u:t:v01:c001": 1, "u:t:v01:c002": 1}
     assert row["frequency"] == 2
@@ -101,13 +101,13 @@ def test_a_quoted_line_keeps_its_own_lane() -> None:
     statements = [
         {
             "claim_layer": "statement",
-            "speaker": {"name": "阿尔法"},
+            "speaker": {"name": "露娜"},
             "evidence": [{"quote": "「好。把它毁掉吧。」"}],
         }
     ]
     rows = build_emotion_curves("t", [{"unit_id": UNIT}], texts={UNIT: TEXT}, statements=statements)
     lanes = {row["speaker"] for row in rows}
-    assert "阿尔法" in lanes, "the attributed quote must land in its own lane"
+    assert "露娜" in lanes, "the attributed quote must land in its own lane"
     assert "" in lanes, "the narration voice is a separate lane"
 
 
@@ -151,7 +151,7 @@ def test_a_valid_link_is_kept() -> None:
 
 def test_no_model_produces_no_rows_rather_than_guesses() -> None:
     assertions = [
-        {"roles": {"主体": "阿尔法"}, "evidence": [{"unit_id": UNIT, "quote": "「好。」"}]}
+        {"roles": {"主体": "露娜"}, "evidence": [{"unit_id": UNIT, "quote": "「好。」"}]}
     ]
     assert build_motivation_chains("t", assertions, llm=None) == []
 
@@ -162,7 +162,7 @@ def test_a_chain_carries_an_evidence_chain() -> None:
             return '[{"behavior_index": 0, "motive": "失去一切", "needs_level": "归属"}]'
 
     assertions = [
-        {"roles": {"主体": "阿尔法"}, "evidence": [{"unit_id": UNIT, "quote": "「好。」"}]}
+        {"roles": {"主体": "露娜"}, "evidence": [{"unit_id": UNIT, "quote": "「好。」"}]}
     ]
     rows = build_motivation_chains("t", assertions, llm=FakeLLM())
     assert len(rows) == 1
@@ -179,7 +179,7 @@ def test_motivation_rows_match_the_spec_schema() -> None:
             return '[{"behavior_index": 0, "motive": "失去一切", "needs_level": "归属"}]'
 
     assertions = [
-        {"roles": {"主体": "阿尔法"}, "evidence": [{"unit_id": UNIT, "quote": "「好。」"}]}
+        {"roles": {"主体": "露娜"}, "evidence": [{"unit_id": UNIT, "quote": "「好。」"}]}
     ]
     rows = build_motivation_chains("t", assertions, llm=FakeLLM())
     assert rows, "空跑: no chain produced"
@@ -200,9 +200,9 @@ def test_an_entity_id_is_resolved_to_a_readable_name() -> None:
         }
     ]
     rows = build_motivation_chains(
-        "t", assertions, llm=FakeLLM(), entity_names={"e:t:org:abc": "某商会"}
+        "t", assertions, llm=FakeLLM(), entity_names={"e:t:org:abc": "境界领域商会"}
     )
-    assert rows[0]["character"] == "某商会", "a chain keyed by entity id is unreadable"
+    assert rows[0]["character"] == "境界领域商会", "a chain keyed by entity id is unreadable"
     assert "未解析" not in rows[0]["note"]
 
 

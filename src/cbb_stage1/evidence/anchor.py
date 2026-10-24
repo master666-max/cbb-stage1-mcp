@@ -149,8 +149,17 @@ def locate_surface(
 def verify_evidence(text: str, evidence: Evidence) -> bool:
     """Recompute an :class:`Evidence` against the unit text.
 
-    True only when ``0 <= start < end <= len(text)``, the quote matches
-    ``text[start:end]`` exactly, and the recorded sha matches the quote.
+    True only when all four hold:
+
+    * ``0 <= start < end <= len(text)``;
+    * the quote matches ``text[start:end]`` exactly;
+    * the recorded sha matches the quote;
+    * ``occurrence`` is the occurrence the span actually points at.
+
+    The fourth check is new. ``occurrence`` was recorded at creation
+    (:func:`choose_occurrence`) and never verified, so a row could claim to be the second time a
+    sentence appears while pointing at the first — and two events quoting the same sentence became
+    indistinguishable, which is the one thing the field exists to prevent.
     """
     if not (0 <= evidence.start < evidence.end <= len(text)):
         return False
@@ -158,4 +167,10 @@ def verify_evidence(text: str, evidence: Evidence) -> bool:
         return False
     if evidence.quote_sha256 and evidence.quote_sha256 != sha256_text(evidence.quote):
         return False
-    return True
+    occurrence = int(evidence.occurrence or 0)
+    if occurrence < 1:
+        return False
+    starts = find_occurrences(text, evidence.quote)
+    if len(starts) < occurrence:
+        return False
+    return starts[occurrence - 1] == evidence.start

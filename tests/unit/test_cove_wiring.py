@@ -164,6 +164,44 @@ def test_a_contradiction_is_counted_as_revised(tmp_path: Path) -> None:
     assert (result.get("counts") or {})["cove_revised"] >= 1
 
 
+# ══ the parallel path must be reachable from here ═════════════════════
+def test_the_cove_call_passes_a_worker_count() -> None:
+    """`cove_verify(workers=...)` exists; a call site that omits it leaves the parallel path dead."""
+    import inspect
+
+    source = inspect.getsource(claims_integration)
+    block = source.split("cove_verify(")[1][:400]
+    assert "cove_workers" in block, (
+        "the CoVe call passes no worker count, so answers stay serial — the paper says they can be "
+        f"batched (A09 p.4). call site: {block[:200]!r}"
+    )
+
+
+def test_the_cove_worker_count_is_bounded_by_the_stage_budget() -> None:
+    """Nested pools starve the gateway semaphore, so the inner count is capped."""
+    import inspect
+
+    source = inspect.getsource(claims_integration.cove_worker_count)
+    assert "min(" in source, (
+        "cove_worker_count does not cap its result; nested pools can exceed the gateway semaphore"
+    )
+    assert "budget" in source, "the cap must come from the stage budget"
+
+
+def test_a_serial_stage_gives_cove_one_worker() -> None:
+    from cbb_stage1.claims.integration import cove_worker_count
+
+    assert cove_worker_count({"max_workers": 1}, 5) == 1
+
+
+def test_the_count_never_exceeds_the_stage_budget() -> None:
+    from cbb_stage1.claims.integration import cove_worker_count
+
+    for budget in (1, 2, 4, 8, 32):
+        value = cove_worker_count({"max_workers": budget}, 100)
+        assert 1 <= value <= budget, f"budget={budget} produced {value}"
+
+
 def test_a_raising_cove_does_not_abort_the_stage(tmp_path: Path) -> None:
     """Same rule as AFEV: one analysis failing must not kill the run."""
     root = tmp_path / "work"

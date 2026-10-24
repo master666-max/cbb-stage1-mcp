@@ -32,9 +32,9 @@ BOOK = "evt"
 CREATED = "2026-10-19T01:00:00+08:00"
 UNIT1 = "u:evt:v01:c001"
 UNIT2 = "u:evt:v01:c002"
-TEXT1 = "贝塔心叶与拉法对战。贝塔心叶说了一句话。"
+TEXT1 = "言万心叶与拉法对战。言万心叶说了一句话。"
 TEXT2 = "拉法离开了房间。"
-EVENT_SUMMARY = "贝塔心叶与拉法对战"
+EVENT_SUMMARY = "言万心叶与拉法对战"
 
 
 # ---------------------------------------------------------------------------
@@ -87,7 +87,7 @@ def _outputs(*, extra_events: list[dict] | None = None) -> list[dict]:
     output1 = EngineOutput(
         unit_id=UNIT1,
         entities=[
-            Entity(book_id=BOOK, type="person", canonical_name="贝塔心叶", tier="canonical"),
+            Entity(book_id=BOOK, type="person", canonical_name="言万心叶", tier="canonical"),
             Entity(book_id=BOOK, type="person", canonical_name="拉法", tier="major"),
         ],
         events=[
@@ -95,7 +95,7 @@ def _outputs(*, extra_events: list[dict] | None = None) -> list[dict]:
                 book_id=BOOK,
                 type="战斗",
                 summary=EVENT_SUMMARY,
-                participants=["贝塔心叶", "拉法"],
+                participants=["言万心叶", "拉法"],
                 unit_id=UNIT1,
                 evidence=[_evidence(UNIT1, EVENT_SUMMARY)],
                 time={"anchor_unit": UNIT1, "expression": "那天"},
@@ -107,10 +107,10 @@ def _outputs(*, extra_events: list[dict] | None = None) -> list[dict]:
                 book_id=BOOK,
                 predicate="性质",
                 library="设定",
-                roles={"主体": "贝塔心叶", "值": {"literal": "说过话"}},
+                roles={"主体": "言万心叶", "值": {"literal": "说过话"}},
                 claim_layer="statement",
                 speaker=speaker,  # type: ignore[arg-type]
-                evidence=[_evidence(UNIT1, "贝塔心叶说了一句话")],
+                evidence=[_evidence(UNIT1, "言万心叶说了一句话")],
                 confidence=0.8,
                 confidence_method="evidence_span",
                 status="asserted",
@@ -186,7 +186,7 @@ def test_assemble_writes_work_events_with_box_content_key(tmp_path):
     assert row["unit_id"] == UNIT1
     assert row["type"] == "战斗"
     assert row["summary"] == EVENT_SUMMARY
-    assert row["participants"] == [candidate_ids["贝塔心叶"], candidate_ids["拉法"]]
+    assert row["participants"] == [candidate_ids["言万心叶"], candidate_ids["拉法"]]
     assert row["time"]["expression"] == "那天"
     assert row["importance"] == "high"
     assert row["evidence"][0]["quote"] == EVENT_SUMMARY
@@ -245,7 +245,7 @@ def test_events_producer_drops_unresolvable_and_dedupes(tmp_path):
         book_id=BOOK,
         type="战斗",
         summary=EVENT_SUMMARY,
-        participants=["贝塔心叶", "拉法"],
+        participants=["言万心叶", "拉法"],
         unit_id=UNIT1,
         evidence=[_evidence(UNIT1, EVENT_SUMMARY)],
     ).model_dump()
@@ -298,8 +298,8 @@ def _supported_qa(work: Path) -> dict:
         make_answer("拉法离开了房间", UNIT2, 0, len("拉法离开了房间"), "拉法离开了房间"),
     ]
     questions = [
-        make_question("q1", "贝塔心叶与拉法发生了什么？", answers=[answers[0]], stance="support"),
-        make_question("q2", "贝塔心叶与拉法发生了什么？", answers=[answers[1]], stance="support"),
+        make_question("q1", "言万心叶与拉法发生了什么？", answers=[answers[0]], stance="support"),
+        make_question("q2", "言万心叶与拉法发生了什么？", answers=[answers[1]], stance="support"),
     ]
     return {statement_id: [question.model_dump() for question in questions]}
 
@@ -342,8 +342,25 @@ def test_supported_claim_promotes_into_box_fact(tmp_path):
 def test_insufficient_claim_never_promotes_into_box(tmp_path):
     work, units, outputs, _resolved, _assembled = _run_resolve_assemble(tmp_path)
     statement_id = _statement_row(work)["assertion_id"]
+    # Declare the claim unanswerable rather than relying on there being no producer: the local
+    # producer answers a grounded claim, so "insufficient" has to be a real state, not the default.
     kwargs = dict(
-        book_id=BOOK, outputs=outputs, units=units, created_at=CREATED, upstream={}
+        book_id=BOOK,
+        outputs=outputs,
+        units=units,
+        created_at=CREATED,
+        upstream={
+            "claims_qa": {
+                statement_id: [
+                    {
+                        "qid": f"q:{statement_id}",
+                        "question": "原文是否支持这一断言？",
+                        "answers": [],
+                        "stance": "unanswerable",
+                    }
+                ]
+            }
+        },
     )
     claimed = claims_run(work, **kwargs)
 

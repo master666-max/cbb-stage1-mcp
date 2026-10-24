@@ -191,9 +191,32 @@ def available_methods(llm: Any = None, **kwargs: Any) -> tuple[str, ...]:
     return tuple(dict.fromkeys(methods))
 
 
+def _configured_checkpoint(kwargs: Mapping[str, Any]) -> str | None:
+    """The checkpoint named by the config, if a config was supplied.
+
+    `uq_heads.resolve_checkpoint` already implements the precedence (explicit > config > env); the auto
+    path simply never called it, so a configured checkpoint had no effect at all. Erroring here would be
+    worse than ignoring the setting, so an unusable config yields None.
+    """
+    config = kwargs.get("config")
+    if config is None:
+        return None
+    try:
+        from .uq_heads import resolve_checkpoint
+
+        path, _source = resolve_checkpoint(None, config)
+    except Exception:  # noqa: BLE001 - a broken config must not break confidence selection
+        return None
+    return path or None
+
+
 def _auto_method(llm: Any, kwargs: Mapping[str, Any]) -> str | None:
     """Auto priority: trained head → white-box hidden → white-box logprob → sampling → judge."""
-    if kwargs.get("head") is not None or kwargs.get("checkpoint"):
+    if (
+        kwargs.get("head") is not None
+        or kwargs.get("checkpoint")
+        or _configured_checkpoint(kwargs)
+    ):
         return "uq_heads"
     if kwargs.get("hidden_states") is not None:
         return "sep"
@@ -227,6 +250,12 @@ def score(record: Any, llm: Any = None, method: str | None = None, **kwargs: Any
                 "没有可用的置信方法：需要 llm（可采样/白盒）、logprobs/hidden_states、"
                 "judge_llm 或已训练头（本包不产生无来源的分数）",
             )
+    if resolved == "uq_heads" and not kwargs.get("checkpoint"):
+        # The selection may have used the config; hand the same value to the attempt, otherwise the
+        # method is chosen and then fails for want of a checkpoint the config had provided.
+        from_config = _configured_checkpoint(kwargs)
+        if from_config:
+            kwargs = {**kwargs, "checkpoint": from_config}
     if resolved == "sep":
         from . import sep as _sep
         return _sep.score(rec, llm, **kwargs)

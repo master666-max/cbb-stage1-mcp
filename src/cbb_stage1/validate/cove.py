@@ -288,6 +288,7 @@ def cove_verify(
     llm: Any = None,
     evidence: Sequence[Any] = (),
     max_questions: int = DEFAULT_MAX_QUESTIONS,
+    workers: int = 1,
 ) -> CoVeResult:
     """Run the four steps on one claim.
 
@@ -297,6 +298,11 @@ def cove_verify(
     Cost is ``2 + questions`` calls (plan, compare, one per question), plus one revision
     call when the comparison found a contradiction. Without a model the result is
     ``unavailable`` — never a fabricated ``verified``.
+
+    The per-question answers are the part the paper says can be batched (A09, p.4: "they can be run
+    in parallel, and hence be batched"). ``workers > 1`` answers them concurrently; the results still
+    come back in question order, so the comparison step and the recorded questions are unaffected.
+    The default stays ``1`` so every existing caller keeps identical behaviour.
     """
     text = str(claim or "").strip()
     if not text or llm is None:
@@ -308,12 +314,21 @@ def cove_verify(
     if not raw_questions:
         return CoVeResult(status="unavailable")
 
-    answered: list[VerificationQuestion] = []
-    for index, question in enumerate(raw_questions, 1):
+    def _answer_one(item: tuple[int, str]) -> VerificationQuestion:
+        index, question = item
         answer = answer_independently(question, llm=llm, evidence=evidence)
-        answered.append(
-            VerificationQuestion(qid=f"q{index}", text=question, answer=answer)
-        )
+        return VerificationQuestion(qid=f"q{index}", text=question, answer=answer)
+
+    # Local import: the parallel helper lives under `orchestrator`, and importing it at module scope
+    # would make the validate package depend on stage orchestration just for a thread pool.
+    from cbb_stage1.orchestrator.parallel import run_ordered
+
+    answered: list[VerificationQuestion] = run_ordered(
+        list(enumerate(raw_questions, 1)),
+        _answer_one,
+        workers=int(workers or 1),
+        thread_name_prefix="cove",
+    )
 
     inconsistencies = compare_with_claim(text, answered, llm=llm)
     if not inconsistencies:

@@ -356,10 +356,12 @@ def test_describe_with_synthesizer_runs_and_attributes_sentences():
     class FakeSynthesizer:
         def synthesize(self, entity_id: str, fragments: tuple[str, ...]) -> str:
             assert entity_id == "e1"
-            assert fragments == ("他笑了",)
+            # Two observations, because one is short-circuited by `describe` (it already is the
+            # description) and never reaches a synthesizer.
+            assert fragments == ("他笑了", "他怕水")
             return "他笑了。他是谁"
 
-    result = describe("e1", ["他笑了"], synthesizer=FakeSynthesizer())
+    result = describe("e1", ["他笑了", "他怕水"], synthesizer=FakeSynthesizer())
 
     assert result.mode == "synthesized"
     assert result.text == "他笑了。他是谁"
@@ -368,7 +370,7 @@ def test_describe_with_synthesizer_runs_and_attributes_sentences():
     assert result.sentences[0].inferred is False
     assert result.sentences[1].inferred is True
     assert result.inferred_ratio == 0.5
-    assert [obs.text for obs in result.observations] == ["他笑了"]
+    assert [obs.text for obs in result.observations] == ["他笑了", "他怕水"]
 
 
 def test_describe_type_guard_and_empty_input():

@@ -129,5 +129,17 @@ def publish_dir(temp: Path, out: Path) -> None:
 
 
 def remove_tree(path: str | Path) -> None:
-    """Best-effort recursive removal for failed builds."""
-    shutil.rmtree(path, ignore_errors=True)
+    """Best-effort recursive removal for failed builds and test cleanup.
+
+    The write bit is restored first: a published box is marked read-only, and `shutil.rmtree` cannot
+    delete a read-only file on Windows — it fails silently under `ignore_errors=True` and leaves the
+    tree behind. That showed up both in the failed-build path and in tests that cleaned up a box.
+    """
+    root = Path(path)
+    try:
+        from cbb_stage1.box.immutability import make_writable
+
+        make_writable(root)
+    except Exception:  # noqa: BLE001 - removal is best-effort by contract
+        pass
+    shutil.rmtree(root, ignore_errors=True)

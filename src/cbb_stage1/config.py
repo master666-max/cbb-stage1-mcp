@@ -41,6 +41,11 @@ class Config:
     #: which keeps ``model_decoupled=false`` honest rather than papering over it.
     judge_base_url: str = ""
     judge_model: str = ""
+    #: B12 abstain gate: below this self-reported confidence a claim abstains instead of being
+    #: promoted. Equal to `claims.verdicts.DEFAULT_ABSTAIN_THRESHOLD`; the two are pinned together
+    #: by a test, because a knob whose default silently disagrees with the code's is worse than no
+    #: knob. Nothing in the pipeline supplied this before, so the gate always used 0.5.
+    abstain_threshold: float = 0.5
     nli_provider: str = "disabled"
     nli_model: str | None = None
     incremental: bool = False

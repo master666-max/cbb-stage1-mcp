@@ -267,8 +267,11 @@ def test_verify_constraint_flags_contradiction():
     constraint = parse_constraint(rec("t:aa", "before", "ev:a", "ev:b"))
     record, contradicted = verify_constraint(constraint, mock_nli("no"))
     assert contradicted is True
+    # The question now states that no event text was supplied. The old expectation was the id-only
+    # prompt, which is the defect D11 fixed: a model cannot order two opaque ids, so an answer to
+    # that question is a guess recorded as a verdict.
     assert record == {"method": "nli_pairwise",
-                      "question": "ev:a 是否先于 ev:b？",
+                      "question": "ev:a （未提供事件正文，无法判断） 是否先于 ev:b （未提供事件正文，无法判断）？",
                       "result": "no", "verifier": "mock-nli", "model": "tiny-1"}
     record_yes, contradicted_yes = verify_constraint(constraint, mock_nli("yes"))
     assert contradicted_yes is False and record_yes["result"] == "yes"

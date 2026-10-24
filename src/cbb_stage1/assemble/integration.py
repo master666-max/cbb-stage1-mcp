@@ -10,7 +10,7 @@ when present, and writes ``assemble/assertions.jsonl``.
 
 The integration layer only does *plumbing*:
 
-* role surfaces (``"贝塔心叶"``) are mapped to entity ids through the resolve
+* role surfaces (``"言万心叶"``) are mapped to entity ids through the resolve
   candidate/alias tables, and merged ids are redirected to their surviving id --
   identity mapping, not validation;
 * every rule (registered predicate, library, role names/types, claim layer,
@@ -666,7 +666,7 @@ def run(
            silently promote a claim to a world fact.
         3. the evidence SPANS — two rows with identical roles can still be different
            events. Measured in the seam test: `参与` with the same mapped roles for
-           "贝塔心叶穿着黑色夹克" (span 12-23) and "黑手党把贝塔心叶逐出" (span 41-52).
+           "言万心叶穿着黑色夹克" (span 12-23) and "黑手党把言万心叶逐出" (span 41-52).
            Merging those destroyed one real event.
 
         What is deliberately NOT in the key is the quote TEXT: the same sentence with
@@ -694,8 +694,8 @@ def run(
         without its trailing "。" gives spans 729-749 and 729-750 — the same fact, two
         quotes. Treat spans that overlap within ``tolerance`` characters as one.
 
-        But NOT any overlap at all: the seam case has "贝塔心叶穿着黑色夹克" (12-23) and
-        "黑手党把贝塔心叶逐出" (41-52) under identical mapped roles, which are two
+        But NOT any overlap at all: the seam case has "言万心叶穿着黑色夹克" (12-23) and
+        "黑手党把言万心叶逐出" (41-52) under identical mapped roles, which are two
         different events. Distance is what separates them.
         """
         left = [

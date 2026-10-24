@@ -46,10 +46,10 @@ ASSERTIONS = [
         "book_id": "t",
         "predicate": "敌对",
         "library": "关系",
-        "roles": {"主体": "e:t:person:1", "值": {"literal": "小兽"}},
+        "roles": {"主体": "e:t:person:1", "值": {"literal": "小狗"}},
         "claim_layer": "statement",
         "status": "asserted",
-        "speaker": {"name": "阿尔法"},
+        "speaker": {"name": "露娜"},
         "verification": {"level": "major", "verdict": "support"},
         "evidence": [
             {"unit_id": "u:t:v01:c001", "start": 10, "end": 16, "quote": "「好。把它毁"}
@@ -86,7 +86,7 @@ QUARANTINE = [
         "item_id": "assertion:u:t:v01:c001",
         "kind": "assertion",
         "reason": "ref_missing",
-        "detail": "entity name not resolved: 源体",
+        "detail": "entity name not resolved: 母体",
         "source_run": "run:1",
     },
     {
@@ -165,9 +165,9 @@ def _build_box(root: Path) -> Path:
     for name, rows in (
         ("forecasts", [{"forecast_id": "fc:1", "method": "lexical_singleton_ratio"}]),
         ("stylometry", [{"style_id": "st:1", "method": "char_statistics"}]),
-        ("themes", [{"theme_id": "th:1", "motif": "小兽"}]),
-        ("emotion_curves", [{"curve_id": "ec:1", "speaker": "阿尔法"}]),
-        ("motivation_chains", [{"chain_id": "mc:1", "character": "阿尔法"}]),
+        ("themes", [{"theme_id": "th:1", "motif": "小狗"}]),
+        ("emotion_curves", [{"curve_id": "ec:1", "speaker": "露娜"}]),
+        ("motivation_chains", [{"chain_id": "mc:1", "character": "露娜"}]),
     ):
         _write_jsonl(box / "derived" / "inference" / f"{name}.jsonl", rows)
     return box

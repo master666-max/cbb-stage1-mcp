@@ -1,0 +1,1570 @@
+{
+  "unit_id": "u:spk5:v01:c001",
+  "mentions": [
+    {
+      "mention_id": null,
+      "unit_id": "u:spk5:v01:c001",
+      "surface": "同一系列的两台机械",
+      "start": 1,
+      "end": 10,
+      "occurrence": 1,
+      "entity_id": null,
+      "mention_type": "name",
+      "confidence": 0.9
+    },
+    {
+      "mention_id": null,
+      "unit_id": "u:spk5:v01:c001",
+      "surface": "小梅芙",
+      "start": 49,
+      "end": 52,
+      "occurrence": 1,
+      "entity_id": null,
+      "mention_type": "name",
+      "confidence": 0.9
+    },
+    {
+      "mention_id": null,
+      "unit_id": "u:spk5:v01:c001",
+      "surface": "梅芙",
+      "start": 50,
+      "end": 52,
+      "occurrence": 1,
+      "entity_id": null,
+      "mention_type": "alias",
+      "confidence": 0.6
+    },
+    {
+      "mention_id": null,
+      "unit_id": "u:spk5:v01:c001",
+      "surface": "言万",
+      "start": 119,
+      "end": 121,
+      "occurrence": 1,
+      "entity_id": null,
+      "mention_type": "name",
+      "confidence": 0.9
+    },
+    {
+      "mention_id": null,
+      "unit_id": "u:spk5:v01:c001",
+      "surface": "言万同学",
+      "start": 119,
+      "end": 123,
+      "occurrence": 1,
+      "entity_id": null,
+      "mention_type": "alias",
+      "confidence": 0.6
+    },
+    {
+      "mention_id": null,
+      "unit_id": "u:spk5:v01:c001",
+      "surface": "旧型号",
+      "start": 189,
+      "end": 192,
+      "occurrence": 1,
+      "entity_id": null,
+      "mention_type": "name",
+      "confidence": 0.9
+    },
+    {
+      "mention_id": null,
+      "unit_id": "u:spk5:v01:c001",
+      "surface": "露娜",
+      "start": 281,
+      "end": 283,
+      "occurrence": 1,
+      "entity_id": null,
+      "mention_type": "name",
+      "confidence": 0.9
+    },
+    {
+      "mention_id": null,
+      "unit_id": "u:spk5:v01:c001",
+      "surface": "露娜小姐",
+      "start": 281,
+      "end": 285,
+      "occurrence": 1,
+      "entity_id": null,
+      "mention_type": "alias",
+      "confidence": 0.6
+    },
+    {
+      "mention_id": null,
+      "unit_id": "u:spk5:v01:c001",
+      "surface": "水里",
+      "start": 344,
+      "end": 346,
+      "occurrence": 1,
+      "entity_id": null,
+      "mention_type": "name",
+      "confidence": 0.9
+    },
+    {
+      "mention_id": null,
+      "unit_id": "u:spk5:v01:c001",
+      "surface": "巨大守护者",
+      "start": 399,
+      "end": 404,
+      "occurrence": 1,
+      "entity_id": null,
+      "mention_type": "name",
+      "confidence": 0.9
+    },
+    {
+      "mention_id": null,
+      "unit_id": "u:spk5:v01:c001",
+      "surface": "言万",
+      "start": 425,
+      "end": 427,
+      "occurrence": 2,
+      "entity_id": null,
+      "mention_type": "name",
+      "confidence": 0.9
+    },
+    {
+      "mention_id": null,
+      "unit_id": "u:spk5:v01:c001",
+      "surface": "言万同学",
+      "start": 425,
+      "end": 429,
+      "occurrence": 2,
+      "entity_id": null,
+      "mention_type": "alias",
+      "confidence": 0.6
+    },
+    {
+      "mention_id": null,
+      "unit_id": "u:spk5:v01:c001",
+      "surface": "巨型机械",
+      "start": 483,
+      "end": 487,
+      "occurrence": 1,
+      "entity_id": null,
+      "mention_type": "alias",
+      "confidence": 0.6
+    },
+    {
+      "mention_id": null,
+      "unit_id": "u:spk5:v01:c001",
+      "surface": "铁针",
+      "start": 492,
+      "end": 494,
+      "occurrence": 1,
+      "entity_id": null,
+      "mention_type": "name",
+      "confidence": 0.9
+    },
+    {
+      "mention_id": null,
+      "unit_id": "u:spk5:v01:c001",
+      "surface": "巨型机械",
+      "start": 578,
+      "end": 582,
+      "occurrence": 2,
+      "entity_id": null,
+      "mention_type": "alias",
+      "confidence": 0.6
+    },
+    {
+      "mention_id": null,
+      "unit_id": "u:spk5:v01:c001",
+      "surface": "铁针",
+      "start": 615,
+      "end": 617,
+      "occurrence": 2,
+      "entity_id": null,
+      "mention_type": "name",
+      "confidence": 0.9
+    },
+    {
+      "mention_id": null,
+      "unit_id": "u:spk5:v01:c001",
+      "surface": "铁针",
+      "start": 620,
+      "end": 622,
+      "occurrence": 3,
+      "entity_id": null,
+      "mention_type": "name",
+      "confidence": 0.9
+    },
+    {
+      "mention_id": null,
+      "unit_id": "u:spk5:v01:c001",
+      "surface": "水面下",
+      "start": 653,
+      "end": 656,
+      "occurrence": 1,
+      "entity_id": null,
+      "mention_type": "name",
+      "confidence": 0.9
+    },
+    {
+      "mention_id": null,
+      "unit_id": "u:spk5:v01:c001",
+      "surface": "丝线",
+      "start": 661,
+      "end": 663,
+      "occurrence": 1,
+      "entity_id": null,
+      "mention_type": "name",
+      "confidence": 0.9
+    },
+    {
+      "mention_id": null,
+      "unit_id": "u:spk5:v01:c001",
+      "surface": "巨型机械",
+      "start": 677,
+      "end": 681,
+      "occurrence": 3,
+      "entity_id": null,
+      "mention_type": "alias",
+      "confidence": 0.6
+    },
+    {
+      "mention_id": null,
+      "unit_id": "u:spk5:v01:c001",
+      "surface": "丝线",
+      "start": 698,
+      "end": 700,
+      "occurrence": 2,
+      "entity_id": null,
+      "mention_type": "name",
+      "confidence": 0.9
+    },
+    {
+      "mention_id": null,
+      "unit_id": "u:spk5:v01:c001",
+      "surface": "丝线",
+      "start": 736,
+      "end": 738,
+      "occurrence": 3,
+      "entity_id": null,
+      "mention_type": "name",
+      "confidence": 0.9
+    },
+    {
+      "mention_id": null,
+      "unit_id": "u:spk5:v01:c001",
+      "surface": "言万",
+      "start": 752,
+      "end": 754,
+      "occurrence": 3,
+      "entity_id": null,
+      "mention_type": "name",
+      "confidence": 0.9
+    },
+    {
+      "mention_id": null,
+      "unit_id": "u:spk5:v01:c001",
+      "surface": "言万同学",
+      "start": 752,
+      "end": 756,
+      "occurrence": 3,
+      "entity_id": null,
+      "mention_type": "alias",
+      "confidence": 0.6
+    },
+    {
+      "mention_id": null,
+      "unit_id": "u:spk5:v01:c001",
+      "surface": "言万",
+      "start": 856,
+      "end": 858,
+      "occurrence": 4,
+      "entity_id": null,
+      "mention_type": "name",
+      "confidence": 0.9
+    },
+    {
+      "mention_id": null,
+      "unit_id": "u:spk5:v01:c001",
+      "surface": "言万同学",
+      "start": 856,
+      "end": 860,
+      "occurrence": 4,
+      "entity_id": null,
+      "mention_type": "alias",
+      "confidence": 0.6
+    },
+    {
+      "mention_id": null,
+      "unit_id": "u:spk5:v01:c001",
+      "surface": "丝线",
+      "start": 912,
+      "end": 914,
+      "occurrence": 4,
+      "entity_id": null,
+      "mention_type": "name",
+      "confidence": 0.9
+    }
+  ],
+  "entities": [
+    {
+      "entity_id": null,
+      "book_id": "spk5",
+      "type": "person",
+      "canonical_name": "露娜",
+      "aliases": [
+        "露娜小姐"
+      ],
+      "description": null,
+      "description_quote": null,
+      "tier": "major",
+      "status": "active",
+      "confidence": 0.8
+    },
+    {
+      "entity_id": null,
+      "book_id": "spk5",
+      "type": "person",
+      "canonical_name": "言万",
+      "aliases": [
+        "言万同学"
+      ],
+      "description": null,
+      "description_quote": null,
+      "tier": "canonical",
+      "status": "active",
+      "confidence": 0.8
+    },
+    {
+      "entity_id": null,
+      "book_id": "spk5",
+      "type": "person",
+      "canonical_name": "小梅芙",
+      "aliases": [
+        "梅芙"
+      ],
+      "description": null,
+      "description_quote": null,
+      "tier": "major",
+      "status": "active",
+      "confidence": 0.8
+    },
+    {
+      "entity_id": null,
+      "book_id": "spk5",
+      "type": "person",
+      "canonical_name": "巨大守护者",
+      "aliases": [
+        "巨型机械"
+      ],
+      "description": null,
+      "description_quote": null,
+      "tier": "canonical",
+      "status": "active",
+      "confidence": 0.8
+    },
+    {
+      "entity_id": null,
+      "book_id": "spk5",
+      "type": "location",
+      "canonical_name": "水面下",
+      "aliases": [],
+      "description": null,
+      "description_quote": null,
+      "tier": "minor",
+      "status": "active",
+      "confidence": 0.7
+    },
+    {
+      "entity_id": null,
+      "book_id": "spk5",
+      "type": "location",
+      "canonical_name": "水里",
+      "aliases": [],
+      "description": null,
+      "description_quote": null,
+      "tier": "minor",
+      "status": "active",
+      "confidence": 0.7
+    },
+    {
+      "entity_id": null,
+      "book_id": "spk5",
+      "type": "concept",
+      "canonical_name": "丝线",
+      "aliases": [],
+      "description": null,
+      "description_quote": null,
+      "tier": "minor",
+      "status": "active",
+      "confidence": 0.6
+    },
+    {
+      "entity_id": null,
+      "book_id": "spk5",
+      "type": "concept",
+      "canonical_name": "铁针",
+      "aliases": [],
+      "description": null,
+      "description_quote": null,
+      "tier": "minor",
+      "status": "active",
+      "confidence": 0.6
+    },
+    {
+      "entity_id": null,
+      "book_id": "spk5",
+      "type": "concept",
+      "canonical_name": "旧型号",
+      "aliases": [],
+      "description": null,
+      "description_quote": null,
+      "tier": "minor",
+      "status": "active",
+      "confidence": 0.6
+    },
+    {
+      "entity_id": null,
+      "book_id": "spk5",
+      "type": "concept",
+      "canonical_name": "银色西洋剑",
+      "aliases": [],
+      "description": null,
+      "description_quote": null,
+      "tier": "minor",
+      "status": "active",
+      "confidence": 0.6
+    },
+    {
+      "entity_id": null,
+      "book_id": "spk5",
+      "type": "concept",
+      "canonical_name": "同一系列的两台机械",
+      "aliases": [],
+      "description": null,
+      "description_quote": null,
+      "tier": "minor",
+      "status": "active",
+      "confidence": 0.6
+    }
+  ],
+  "assertions": [
+    {
+      "assertion_id": null,
+      "book_id": "spk5",
+      "predicate": "性质",
+      "library": "设定",
+      "roles": {
+        "主体": "言万",
+        "值": {
+          "literal": "洞察机械弱点"
+        }
+      },
+      "qualifiers": {
+        "dimension": "技能",
+        "ability_name": "洞察机械弱点",
+        "description": "观察出巨大守护者背上装甲缺失、且是旧型号思考迟钝，据此判断有胜算"
+      },
+      "claim_layer": "statement",
+      "speaker": null,
+      "evidence": [
+        {
+          "unit_id": "u:spk5:v01:c001",
+          "start": 130,
+          "end": 142,
+          "quote": "「那家伙，缺了些零件。」",
+          "quote_sha256": "03e7e67cddaf80d6fd4709d5c7b84ca15260d62478330f7827c05be2da7ab46c",
+          "occurrence": 1,
+          "speaker": {
+            "kind": "entity",
+            "entity_id": null,
+            "name": "言万"
+          },
+          "mode": "dialogue"
+        }
+      ],
+      "confidence": 0.6,
+      "confidence_method": "engine_self_report",
+      "confidence_scope": "assertion",
+      "status": "asserted",
+      "verification": null,
+      "superseded_by": null,
+      "derived_from": [],
+      "deps": [],
+      "produced_by": {}
+    },
+    {
+      "assertion_id": null,
+      "book_id": "spk5",
+      "predicate": "性质",
+      "library": "设定",
+      "roles": {
+        "主体": "巨大守护者",
+        "值": {
+          "literal": "背上装甲缺了一部分，裸露在外；旧型号，身躯丑陋"
+        }
+      },
+      "qualifiers": {},
+      "claim_layer": "fact",
+      "speaker": null,
+      "evidence": [],
+      "confidence": 0.6,
+      "confidence_method": "engine_self_report",
+      "confidence_scope": "assertion",
+      "status": "needs_evidence",
+      "verification": null,
+      "superseded_by": null,
+      "derived_from": [],
+      "deps": [],
+      "produced_by": {}
+    },
+    {
+      "assertion_id": null,
+      "book_id": "spk5",
+      "predicate": "性质",
+      "library": "设定",
+      "roles": {
+        "主体": "巨大守护者",
+        "值": {
+          "literal": "投掷铁针"
+        }
+      },
+      "qualifiers": {
+        "dimension": "技能",
+        "ability_name": "投掷铁针",
+        "description": "投出几十根铁针攻击，足以刺穿人体"
+      },
+      "claim_layer": "fact",
+      "speaker": null,
+      "evidence": [
+        {
+          "unit_id": "u:spk5:v01:c001",
+          "start": 483,
+          "end": 494,
+          "quote": "巨型机械投出几十根铁针",
+          "quote_sha256": "24d4339dfeb6cd40418e857f666d99b243ddeeb914de3a6e4842e676afcb213c",
+          "occurrence": 1,
+          "speaker": null,
+          "mode": "narration"
+        }
+      ],
+      "confidence": 0.6,
+      "confidence_method": "engine_self_report",
+      "confidence_scope": "assertion",
+      "status": "asserted",
+      "verification": null,
+      "superseded_by": null,
+      "derived_from": [],
+      "deps": [],
+      "produced_by": {}
+    },
+    {
+      "assertion_id": null,
+      "book_id": "spk5",
+      "predicate": "位于",
+      "library": "关系",
+      "roles": {
+        "主体": "水面下",
+        "值": {
+          "literal": "水域"
+        }
+      },
+      "qualifiers": {
+        "parent": "水里",
+        "description": "水里的水下部分。露娜在此延伸丝线，把身体转移到巨型机械背后。"
+      },
+      "claim_layer": "fact",
+      "speaker": null,
+      "evidence": [
+        {
+          "unit_id": "u:spk5:v01:c001",
+          "start": 651,
+          "end": 663,
+          "quote": "我在水面下延伸自己的丝线",
+          "quote_sha256": "11964aa0fff1e996de74d82261ba6488f236550a84165a088901a142194d3dd8",
+          "occurrence": 1,
+          "speaker": null,
+          "mode": "narration"
+        }
+      ],
+      "confidence": 0.7,
+      "confidence_method": "engine_self_report",
+      "confidence_scope": "assertion",
+      "status": "asserted",
+      "verification": null,
+      "superseded_by": null,
+      "derived_from": [],
+      "deps": [],
+      "produced_by": {}
+    },
+    {
+      "assertion_id": null,
+      "book_id": "spk5",
+      "predicate": "位于",
+      "library": "关系",
+      "roles": {
+        "主体": "水里",
+        "值": {
+          "literal": "区域"
+        }
+      },
+      "qualifiers": {},
+      "claim_layer": "fact",
+      "speaker": null,
+      "evidence": [],
+      "confidence": 0.7,
+      "confidence_method": "engine_self_report",
+      "confidence_scope": "assertion",
+      "status": "needs_evidence",
+      "verification": null,
+      "superseded_by": null,
+      "derived_from": [],
+      "deps": [],
+      "produced_by": {}
+    },
+    {
+      "assertion_id": null,
+      "book_id": "spk5",
+      "predicate": "性质",
+      "library": "设定",
+      "roles": {
+        "主体": "丝线",
+        "值": {
+          "literal": "露娜的能力。可在水面下延伸丝线，借此把身体移动到别处，表面残影则用丝线修补；丝线还能变幻成银色的西洋剑。"
+        }
+      },
+      "qualifiers": {
+        "category": "能力",
+        "related": [
+          "露娜"
+        ]
+      },
+      "claim_layer": "fact",
+      "speaker": null,
+      "evidence": [
+        {
+          "unit_id": "u:spk5:v01:c001",
+          "start": 651,
+          "end": 685,
+          "quote": "我在水面下延伸自己的丝线，将自己 99％的身体移动到巨型机械的背后。",
+          "quote_sha256": "a19b8a867563a5817d961df062d7f54327bcf1a8c8c973fd0cf52ee54ea33d83",
+          "occurrence": 1,
+          "speaker": null,
+          "mode": "narration"
+        }
+      ],
+      "confidence": 0.6,
+      "confidence_method": "engine_self_report",
+      "confidence_scope": "assertion",
+      "status": "asserted",
+      "verification": null,
+      "superseded_by": null,
+      "derived_from": [],
+      "deps": [],
+      "produced_by": {}
+    },
+    {
+      "assertion_id": null,
+      "book_id": "spk5",
+      "predicate": "性质",
+      "library": "设定",
+      "roles": {
+        "主体": "铁针",
+        "值": {
+          "literal": "巨型机械投出的几十根铁针，威力足以刺穿人体、撕裂肌肉粉碎骨头。"
+        }
+      },
+      "qualifiers": {
+        "category": "武器",
+        "related": [
+          "巨大守护者"
+        ]
+      },
+      "claim_layer": "fact",
+      "speaker": null,
+      "evidence": [
+        {
+          "unit_id": "u:spk5:v01:c001",
+          "start": 483,
+          "end": 494,
+          "quote": "巨型机械投出几十根铁针",
+          "quote_sha256": "24d4339dfeb6cd40418e857f666d99b243ddeeb914de3a6e4842e676afcb213c",
+          "occurrence": 1,
+          "speaker": null,
+          "mode": "narration"
+        }
+      ],
+      "confidence": 0.6,
+      "confidence_method": "engine_self_report",
+      "confidence_scope": "assertion",
+      "status": "asserted",
+      "verification": null,
+      "superseded_by": null,
+      "derived_from": [],
+      "deps": [],
+      "produced_by": {}
+    },
+    {
+      "assertion_id": null,
+      "book_id": "spk5",
+      "predicate": "性质",
+      "library": "设定",
+      "roles": {
+        "主体": "旧型号",
+        "值": {
+          "literal": "机械的分类。旧型号的机械思考迟钝，行动可被预判，因此言万认为有胜算。"
+        }
+      },
+      "qualifiers": {
+        "category": "设定",
+        "related": [
+          "巨大守护者"
+        ]
+      },
+      "claim_layer": "fact",
+      "speaker": null,
+      "evidence": [
+        {
+          "unit_id": "u:spk5:v01:c001",
+          "start": 185,
+          "end": 199,
+          "quote": "那家伙是旧型号，思考很迟钝。",
+          "quote_sha256": "9957a587e12cb8f65a812aa0e7ecd3bddbdceb2051a8d27861826db9f5fb8d62",
+          "occurrence": 1,
+          "speaker": {
+            "kind": "entity",
+            "entity_id": null,
+            "name": "言万"
+          },
+          "mode": "narration"
+        }
+      ],
+      "confidence": 0.6,
+      "confidence_method": "engine_self_report",
+      "confidence_scope": "assertion",
+      "status": "asserted",
+      "verification": null,
+      "superseded_by": null,
+      "derived_from": [],
+      "deps": [],
+      "produced_by": {}
+    },
+    {
+      "assertion_id": null,
+      "book_id": "spk5",
+      "predicate": "性质",
+      "library": "设定",
+      "roles": {
+        "主体": "银色西洋剑",
+        "值": {
+          "literal": "露娜由丝线变幻而成的武器。手腕伸出的丝线成形为银色的西洋剑，用于穿过机械缝隙刺中要害。"
+        }
+      },
+      "qualifiers": {
+        "category": "武器",
+        "related": [
+          "丝线",
+          "露娜"
+        ]
+      },
+      "claim_layer": "fact",
+      "speaker": null,
+      "evidence": [
+        {
+          "unit_id": "u:spk5:v01:c001",
+          "start": 739,
+          "end": 749,
+          "quote": "变幻成了银色的西洋剑",
+          "quote_sha256": "7edba628cc045e43705e2d5fc4291388cd3802dbc8be06393e352c6552e50d77",
+          "occurrence": 1,
+          "speaker": null,
+          "mode": "narration"
+        }
+      ],
+      "confidence": 0.6,
+      "confidence_method": "engine_self_report",
+      "confidence_scope": "assertion",
+      "status": "asserted",
+      "verification": null,
+      "superseded_by": null,
+      "derived_from": [],
+      "deps": [],
+      "produced_by": {}
+    },
+    {
+      "assertion_id": null,
+      "book_id": "spk5",
+      "predicate": "性质",
+      "library": "设定",
+      "roles": {
+        "主体": "同一系列的两台机械",
+        "值": {
+          "literal": "开篇点明的设定：眼前存在两台属于同一系列的机械。后文的巨大守护者即其中之一。"
+        }
+      },
+      "qualifiers": {
+        "category": "设定",
+        "related": [
+          "巨大守护者"
+        ]
+      },
+      "claim_layer": "fact",
+      "speaker": null,
+      "evidence": [
+        {
+          "unit_id": "u:spk5:v01:c001",
+          "start": 0,
+          "end": 11,
+          "quote": "是同一系列的两台机械。",
+          "quote_sha256": "d675fac321a7d4d48c5b25fad8cd73d7a516bf357f3828b5b85270913fc0f09c",
+          "occurrence": 1,
+          "speaker": null,
+          "mode": "narration"
+        }
+      ],
+      "confidence": 0.6,
+      "confidence_method": "engine_self_report",
+      "confidence_scope": "assertion",
+      "status": "asserted",
+      "verification": null,
+      "superseded_by": null,
+      "derived_from": [],
+      "deps": [],
+      "produced_by": {}
+    },
+    {
+      "assertion_id": null,
+      "book_id": "spk5",
+      "predicate": "同伴",
+      "library": "关系",
+      "roles": {
+        "施事": "露娜",
+        "受事": "言万"
+      },
+      "qualifiers": {
+        "is_new": true,
+        "previous_type": null,
+        "unmapped": true
+      },
+      "claim_layer": "statement",
+      "speaker": null,
+      "evidence": [
+        {
+          "unit_id": "u:spk5:v01:c001",
+          "start": 280,
+          "end": 291,
+          "quote": "「露娜小姐。拜托了。」",
+          "quote_sha256": "dbd68636eb34cab16a4906171d65a26c016a25066f4ddd4f1e616c1c74e557d3",
+          "occurrence": 1,
+          "speaker": {
+            "kind": "entity",
+            "entity_id": null,
+            "name": "言万"
+          },
+          "mode": "dialogue"
+        }
+      ],
+      "confidence": 0.75,
+      "confidence_method": "engine_self_report",
+      "confidence_scope": "assertion",
+      "status": "asserted",
+      "verification": null,
+      "superseded_by": null,
+      "derived_from": [],
+      "deps": [],
+      "produced_by": {}
+    },
+    {
+      "assertion_id": null,
+      "book_id": "spk5",
+      "predicate": "同伴",
+      "library": "关系",
+      "roles": {
+        "施事": "露娜",
+        "受事": "小梅芙"
+      },
+      "qualifiers": {
+        "is_new": true,
+        "previous_type": null,
+        "unmapped": true
+      },
+      "claim_layer": "fact",
+      "speaker": null,
+      "evidence": [
+        {
+          "unit_id": "u:spk5:v01:c001",
+          "start": 49,
+          "end": 58,
+          "quote": "小梅芙的牺牲白费了",
+          "quote_sha256": "e65d239dc38569340cb61120b6a3f0c4db0b8568c574aeeb0cfb3b1f7b387608",
+          "occurrence": 1,
+          "speaker": null,
+          "mode": "narration"
+        }
+      ],
+      "confidence": 0.75,
+      "confidence_method": "engine_self_report",
+      "confidence_scope": "assertion",
+      "status": "asserted",
+      "verification": null,
+      "superseded_by": null,
+      "derived_from": [],
+      "deps": [],
+      "produced_by": {}
+    },
+    {
+      "assertion_id": null,
+      "book_id": "spk5",
+      "predicate": "敌对",
+      "library": "关系",
+      "roles": {
+        "施事": "露娜",
+        "受事": "巨大守护者"
+      },
+      "qualifiers": {
+        "relation_type": "敌对",
+        "is_new": true,
+        "previous_type": null
+      },
+      "claim_layer": "statement",
+      "speaker": null,
+      "evidence": [
+        {
+          "unit_id": "u:spk5:v01:c001",
+          "start": 638,
+          "end": 649,
+          "quote": "「──去死吧，混蛋！」",
+          "quote_sha256": "5cdc6a1aa9858423d851e88af5a776cdf36e5e70964e584f494444744a877081",
+          "occurrence": 1,
+          "speaker": {
+            "kind": "entity",
+            "entity_id": null,
+            "name": "露娜"
+          },
+          "mode": "dialogue"
+        }
+      ],
+      "confidence": 0.75,
+      "confidence_method": "engine_self_report",
+      "confidence_scope": "assertion",
+      "status": "asserted",
+      "verification": null,
+      "superseded_by": null,
+      "derived_from": [],
+      "deps": [],
+      "produced_by": {}
+    },
+    {
+      "assertion_id": null,
+      "book_id": "spk5",
+      "predicate": "敌对",
+      "library": "关系",
+      "roles": {
+        "施事": "言万",
+        "受事": "巨大守护者"
+      },
+      "qualifiers": {
+        "relation_type": "敌对",
+        "is_new": true,
+        "previous_type": null
+      },
+      "claim_layer": "fact",
+      "speaker": null,
+      "evidence": [
+        {
+          "unit_id": "u:spk5:v01:c001",
+          "start": 483,
+          "end": 503,
+          "quote": "巨型机械投出几十根铁针，刺穿了他的身体。",
+          "quote_sha256": "ebd43643ce867aa0d7dd567d7f6fad4b8213d66b00b469b2e95c80aa70c9b886",
+          "occurrence": 1,
+          "speaker": null,
+          "mode": "narration"
+        }
+      ],
+      "confidence": 0.75,
+      "confidence_method": "engine_self_report",
+      "confidence_scope": "assertion",
+      "status": "asserted",
+      "verification": null,
+      "superseded_by": null,
+      "derived_from": [],
+      "deps": [],
+      "produced_by": {}
+    },
+    {
+      "assertion_id": null,
+      "book_id": "spk5",
+      "predicate": "位于",
+      "library": "关系",
+      "roles": {
+        "主体": "水里",
+        "值": {
+          "literal": "水面与地面上下相邻"
+        }
+      },
+      "qualifiers": {
+        "target": "地面",
+        "relation_type": "adjacent",
+        "distance_class": "near",
+        "confidence": "medium"
+      },
+      "claim_layer": "fact",
+      "speaker": null,
+      "evidence": [
+        {
+          "unit_id": "u:spk5:v01:c001",
+          "start": 827,
+          "end": 853,
+          "quote": "被钢丝缠绕固定的废铁，也随着水花飞溅，砸落在地面上。",
+          "quote_sha256": "141076f8229947787777e3b0bf677deee6fed48e30b7ed43499cb0cd32b74185",
+          "occurrence": 1,
+          "speaker": null,
+          "mode": "narration"
+        }
+      ],
+      "confidence": 0.7,
+      "confidence_method": "engine_self_report",
+      "confidence_scope": "assertion",
+      "status": "asserted",
+      "verification": null,
+      "superseded_by": null,
+      "derived_from": [],
+      "deps": [],
+      "produced_by": {}
+    },
+    {
+      "assertion_id": null,
+      "book_id": "spk5",
+      "predicate": "参与",
+      "library": "事件",
+      "roles": {
+        "事件": "露娜",
+        "参与者": [
+          "露娜"
+        ]
+      },
+      "qualifiers": {
+        "item_name": "丝线",
+        "item_type": "武器",
+        "action": "使用",
+        "actor": "露娜",
+        "description": "露娜用水面下延伸的丝线移动身体，并让丝线变幻成银色的西洋剑"
+      },
+      "claim_layer": "fact",
+      "speaker": null,
+      "evidence": [
+        {
+          "unit_id": "u:spk5:v01:c001",
+          "start": 729,
+          "end": 749,
+          "quote": "从我手腕伸出的丝线，变幻成了银色的西洋剑",
+          "quote_sha256": "c12744a153f9b414473eb1b0d2ca40f648d84c9eff38cd056fa1697f591a5af4",
+          "occurrence": 1,
+          "speaker": null,
+          "mode": "narration"
+        }
+      ],
+      "confidence": 0.5,
+      "confidence_method": "engine_self_report",
+      "confidence_scope": "assertion",
+      "status": "asserted",
+      "verification": null,
+      "superseded_by": null,
+      "derived_from": [],
+      "deps": [],
+      "produced_by": {}
+    },
+    {
+      "assertion_id": null,
+      "book_id": "spk5",
+      "predicate": "参与",
+      "library": "事件",
+      "roles": {
+        "事件": "巨大守护者",
+        "参与者": [
+          "巨大守护者"
+        ]
+      },
+      "qualifiers": {
+        "item_name": "铁针",
+        "item_type": "武器",
+        "action": "使用",
+        "actor": "巨大守护者",
+        "description": "巨型机械投出几十根铁针，刺穿言万的身体"
+      },
+      "claim_layer": "fact",
+      "speaker": null,
+      "evidence": [
+        {
+          "unit_id": "u:spk5:v01:c001",
+          "start": 483,
+          "end": 503,
+          "quote": "巨型机械投出几十根铁针，刺穿了他的身体。",
+          "quote_sha256": "ebd43643ce867aa0d7dd567d7f6fad4b8213d66b00b469b2e95c80aa70c9b886",
+          "occurrence": 1,
+          "speaker": null,
+          "mode": "narration"
+        }
+      ],
+      "confidence": 0.5,
+      "confidence_method": "engine_self_report",
+      "confidence_scope": "assertion",
+      "status": "asserted",
+      "verification": null,
+      "superseded_by": null,
+      "derived_from": [],
+      "deps": [],
+      "produced_by": {}
+    },
+    {
+      "assertion_id": null,
+      "book_id": "spk5",
+      "predicate": "参与",
+      "library": "事件",
+      "roles": {
+        "事件": "露娜",
+        "参与者": [
+          "露娜"
+        ]
+      },
+      "qualifiers": {
+        "item_name": "银色西洋剑",
+        "item_type": "武器",
+        "action": "出现",
+        "actor": "露娜",
+        "description": "露娜手腕伸出的丝线变幻成银色的西洋剑，用来刺中机械要害"
+      },
+      "claim_layer": "fact",
+      "speaker": null,
+      "evidence": [
+        {
+          "unit_id": "u:spk5:v01:c001",
+          "start": 729,
+          "end": 750,
+          "quote": "从我手腕伸出的丝线，变幻成了银色的西洋剑。",
+          "quote_sha256": "133650f1bcbd63b966426cb8fcbb8e89f715b291bab6140be8be7117fdb9a70e",
+          "occurrence": 1,
+          "speaker": null,
+          "mode": "narration"
+        }
+      ],
+      "confidence": 0.5,
+      "confidence_method": "engine_self_report",
+      "confidence_scope": "assertion",
+      "status": "asserted",
+      "verification": null,
+      "superseded_by": null,
+      "derived_from": [],
+      "deps": [],
+      "produced_by": {}
+    },
+    {
+      "assertion_id": null,
+      "book_id": "spk5",
+      "predicate": "参与",
+      "library": "事件",
+      "roles": {
+        "事件": "巨大守护者",
+        "参与者": [
+          "巨大守护者"
+        ]
+      },
+      "qualifiers": {
+        "item_name": "废铁",
+        "item_type": "残骸",
+        "action": "损毁",
+        "actor": "巨大守护者",
+        "description": "倒下的机械被钢丝缠绕固定，废铁随水花砸落地面"
+      },
+      "claim_layer": "fact",
+      "speaker": null,
+      "evidence": [
+        {
+          "unit_id": "u:spk5:v01:c001",
+          "start": 827,
+          "end": 837,
+          "quote": "被钢丝缠绕固定的废铁",
+          "quote_sha256": "d486296c9714a3c698cd1f78de98ae3c0f15854006434427b4d338b19af27d38",
+          "occurrence": 1,
+          "speaker": null,
+          "mode": "narration"
+        }
+      ],
+      "confidence": 0.5,
+      "confidence_method": "engine_self_report",
+      "confidence_scope": "assertion",
+      "status": "asserted",
+      "verification": null,
+      "superseded_by": null,
+      "derived_from": [],
+      "deps": [],
+      "produced_by": {}
+    }
+  ],
+  "events": [
+    {
+      "event_id": null,
+      "book_id": "spk5",
+      "type": "物品",
+      "summary": "露娜 使用 丝线",
+      "participants": [
+        "露娜"
+      ],
+      "location": null,
+      "time": {},
+      "importance": "medium",
+      "unit_id": "u:spk5:v01:c001",
+      "evidence": [
+        {
+          "unit_id": "u:spk5:v01:c001",
+          "start": 729,
+          "end": 749,
+          "quote": "从我手腕伸出的丝线，变幻成了银色的西洋剑",
+          "quote_sha256": "c12744a153f9b414473eb1b0d2ca40f648d84c9eff38cd056fa1697f591a5af4",
+          "occurrence": 1,
+          "speaker": null,
+          "mode": "narration"
+        }
+      ],
+      "status": "asserted",
+      "superseded_by": null,
+      "deps": []
+    },
+    {
+      "event_id": null,
+      "book_id": "spk5",
+      "type": "物品",
+      "summary": "巨大守护者 使用 铁针",
+      "participants": [
+        "巨大守护者"
+      ],
+      "location": null,
+      "time": {},
+      "importance": "medium",
+      "unit_id": "u:spk5:v01:c001",
+      "evidence": [
+        {
+          "unit_id": "u:spk5:v01:c001",
+          "start": 483,
+          "end": 503,
+          "quote": "巨型机械投出几十根铁针，刺穿了他的身体。",
+          "quote_sha256": "ebd43643ce867aa0d7dd567d7f6fad4b8213d66b00b469b2e95c80aa70c9b886",
+          "occurrence": 1,
+          "speaker": null,
+          "mode": "narration"
+        }
+      ],
+      "status": "asserted",
+      "superseded_by": null,
+      "deps": []
+    },
+    {
+      "event_id": null,
+      "book_id": "spk5",
+      "type": "物品",
+      "summary": "露娜 出现 银色西洋剑",
+      "participants": [
+        "露娜"
+      ],
+      "location": null,
+      "time": {},
+      "importance": "medium",
+      "unit_id": "u:spk5:v01:c001",
+      "evidence": [
+        {
+          "unit_id": "u:spk5:v01:c001",
+          "start": 729,
+          "end": 750,
+          "quote": "从我手腕伸出的丝线，变幻成了银色的西洋剑。",
+          "quote_sha256": "133650f1bcbd63b966426cb8fcbb8e89f715b291bab6140be8be7117fdb9a70e",
+          "occurrence": 1,
+          "speaker": null,
+          "mode": "narration"
+        }
+      ],
+      "status": "asserted",
+      "superseded_by": null,
+      "deps": []
+    },
+    {
+      "event_id": null,
+      "book_id": "spk5",
+      "type": "物品",
+      "summary": "巨大守护者 损毁 废铁",
+      "participants": [
+        "巨大守护者"
+      ],
+      "location": null,
+      "time": {},
+      "importance": "medium",
+      "unit_id": "u:spk5:v01:c001",
+      "evidence": [
+        {
+          "unit_id": "u:spk5:v01:c001",
+          "start": 827,
+          "end": 837,
+          "quote": "被钢丝缠绕固定的废铁",
+          "quote_sha256": "d486296c9714a3c698cd1f78de98ae3c0f15854006434427b4d338b19af27d38",
+          "occurrence": 1,
+          "speaker": null,
+          "mode": "narration"
+        }
+      ],
+      "status": "asserted",
+      "superseded_by": null,
+      "deps": []
+    },
+    {
+      "event_id": null,
+      "book_id": "spk5",
+      "type": "社交",
+      "summary": "言万指出巨大守护者背上装甲缺失且是旧型号，判断有胜算",
+      "participants": [
+        "言万",
+        "露娜"
+      ],
+      "location": "水里",
+      "time": {},
+      "importance": "high",
+      "unit_id": "u:spk5:v01:c001",
+      "evidence": [
+        {
+          "unit_id": "u:spk5:v01:c001",
+          "start": 130,
+          "end": 142,
+          "quote": "「那家伙，缺了些零件。」",
+          "quote_sha256": "03e7e67cddaf80d6fd4709d5c7b84ca15260d62478330f7827c05be2da7ab46c",
+          "occurrence": 1,
+          "speaker": {
+            "kind": "entity",
+            "entity_id": null,
+            "name": "言万"
+          },
+          "mode": "dialogue"
+        }
+      ],
+      "status": "asserted",
+      "superseded_by": null,
+      "deps": []
+    },
+    {
+      "event_id": null,
+      "book_id": "spk5",
+      "type": "战斗",
+      "summary": "言万把「之后的事」托付给露娜后，空手冲向巨型机械",
+      "participants": [
+        "言万",
+        "露娜"
+      ],
+      "location": "水里",
+      "time": {},
+      "importance": "high",
+      "unit_id": "u:spk5:v01:c001",
+      "evidence": [
+        {
+          "unit_id": "u:spk5:v01:c001",
+          "start": 302,
+          "end": 309,
+          "quote": "「之后的事。」",
+          "quote_sha256": "cf10d60864c0a87bd2a82f14dcde4e8d09f58fe59bd18b7430cc5badcf005bd4",
+          "occurrence": 1,
+          "speaker": {
+            "kind": "entity",
+            "entity_id": null,
+            "name": "言万"
+          },
+          "mode": "dialogue"
+        }
+      ],
+      "status": "asserted",
+      "superseded_by": null,
+      "deps": []
+    },
+    {
+      "event_id": null,
+      "book_id": "spk5",
+      "type": "战斗",
+      "summary": "巨型机械投出铁针刺穿言万，言万重伤",
+      "participants": [
+        "言万",
+        "巨大守护者"
+      ],
+      "location": "水里",
+      "time": {},
+      "importance": "high",
+      "unit_id": "u:spk5:v01:c001",
+      "evidence": [
+        {
+          "unit_id": "u:spk5:v01:c001",
+          "start": 483,
+          "end": 503,
+          "quote": "巨型机械投出几十根铁针，刺穿了他的身体。",
+          "quote_sha256": "ebd43643ce867aa0d7dd567d7f6fad4b8213d66b00b469b2e95c80aa70c9b886",
+          "occurrence": 1,
+          "speaker": null,
+          "mode": "narration"
+        }
+      ],
+      "status": "asserted",
+      "superseded_by": null,
+      "deps": []
+    },
+    {
+      "event_id": null,
+      "book_id": "spk5",
+      "type": "战斗",
+      "summary": "露娜借言万争取的破绽潜入水下，用丝线转移身体并化剑刺中机械要害",
+      "participants": [
+        "露娜",
+        "巨大守护者"
+      ],
+      "location": "水里",
+      "time": {},
+      "importance": "high",
+      "unit_id": "u:spk5:v01:c001",
+      "evidence": [
+        {
+          "unit_id": "u:spk5:v01:c001",
+          "start": 772,
+          "end": 790,
+          "quote": "我穿过机械的缝隙，准确地刺中了要害。",
+          "quote_sha256": "cf87b81a15227cd1308242d75be22409e29fe58aadcef44dd318bde0b1631947",
+          "occurrence": 1,
+          "speaker": null,
+          "mode": "narration"
+        }
+      ],
+      "status": "asserted",
+      "superseded_by": null,
+      "deps": []
+    },
+    {
+      "event_id": null,
+      "book_id": "spk5",
+      "type": "战斗",
+      "summary": "机械缓缓倒下，废铁砸落地面；露娜跑向重伤的言万",
+      "participants": [
+        "露娜",
+        "言万",
+        "巨大守护者"
+      ],
+      "location": "水里",
+      "time": {},
+      "importance": "medium",
+      "unit_id": "u:spk5:v01:c001",
+      "evidence": [
+        {
+          "unit_id": "u:spk5:v01:c001",
+          "start": 819,
+          "end": 853,
+          "quote": "机械缓缓地倒下。被钢丝缠绕固定的废铁，也随着水花飞溅，砸落在地面上。",
+          "quote_sha256": "76777760071ee6ba8be0680af20add0d1d4ba4d0a507e5fde29fb24ffc6281fb",
+          "occurrence": 1,
+          "speaker": null,
+          "mode": "narration"
+        }
+      ],
+      "status": "asserted",
+      "superseded_by": null,
+      "deps": []
+    },
+    {
+      "event_id": null,
+      "book_id": "spk5",
+      "type": "战斗",
+      "summary": "言万大喊「到水里去」，空手飞奔冲向巨型机械",
+      "participants": [
+        "言万",
+        "露娜"
+      ],
+      "location": "水里",
+      "time": {},
+      "importance": "high",
+      "unit_id": "u:spk5:v01:c001",
+      "evidence": [
+        {
+          "unit_id": "u:spk5:v01:c001",
+          "start": 342,
+          "end": 349,
+          "quote": "「到水里去！」",
+          "quote_sha256": "d2b62cdea766d2982eee084ffe12e4ea014cd1de4ea181867cdb82022055ff8f",
+          "occurrence": 1,
+          "speaker": {
+            "kind": "entity",
+            "entity_id": null,
+            "name": "言万"
+          },
+          "mode": "dialogue"
+        }
+      ],
+      "status": "asserted",
+      "superseded_by": null,
+      "deps": []
+    },
+    {
+      "event_id": null,
+      "book_id": "spk5",
+      "type": "其他",
+      "summary": "露娜目睹言万从不放弃，回想起相遇以来的种种并生出憧憬",
+      "participants": [
+        "露娜",
+        "言万"
+      ],
+      "location": "水里",
+      "time": {},
+      "importance": "medium",
+      "unit_id": "u:spk5:v01:c001",
+      "evidence": [
+        {
+          "unit_id": "u:spk5:v01:c001",
+          "start": 232,
+          "end": 248,
+          "quote": "回想起来，从相遇的时候就是这样。",
+          "quote_sha256": "d298fca01b809d205e1e86b7517a544055f457666853868356671024489b58cf",
+          "occurrence": 1,
+          "speaker": null,
+          "mode": "narration"
+        }
+      ],
+      "status": "asserted",
+      "superseded_by": null,
+      "deps": []
+    },
+    {
+      "event_id": null,
+      "book_id": "spk5",
+      "type": "战斗",
+      "summary": "巨型机械把视线转向呆立的露娜并投出铁针，却只刺中丝线修补的表面",
+      "participants": [
+        "露娜",
+        "巨大守护者"
+      ],
+      "location": "水里",
+      "time": {},
+      "importance": "high",
+      "unit_id": "u:spk5:v01:c001",
+      "evidence": [
+        {
+          "unit_id": "u:spk5:v01:c001",
+          "start": 685,
+          "end": 720,
+          "quote": "那家伙现在刺穿的，不过是用丝线修补出来的、我那仅剩 1% 的表面而已。",
+          "quote_sha256": "7cd1a735949e23569d9d5c4c83bb789a478fa41f2f6fd657f5aef39abbb60dea",
+          "occurrence": 1,
+          "speaker": null,
+          "mode": "narration"
+        }
+      ],
+      "status": "asserted",
+      "superseded_by": null,
+      "deps": []
+    }
+  ],
+  "cues": [],
+  "summary": null,
+  "abstain": false,
+  "notes": [
+    "prescan: dictionary hints=1 (status=completed)",
+    "tokens: unavailable (transport did not report usage)",
+    "gleaning round 1: merged (+3 chars, +0 rels, +3 events candidates)",
+    "ai-reader: 4 characters, 2 locations, 4 relationships, 8 events",
+    "evidence anchored: 25/27 quotes verbatim",
+    "relation types without an L1 predicate (left for assemble to propose): 同伴",
+    "gleaning_round=1"
+  ],
+  "gleaning_round": 1
+}

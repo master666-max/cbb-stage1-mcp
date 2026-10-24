@@ -32,6 +32,12 @@ __all__ = [
 
 STANCES: tuple[str, ...] = ("support", "refute", "irrelevant", "unanswerable")
 
+#: The paper's iteration bound for the clarification stage (B9: "up to k=5 rounds").
+#:
+#: A bound, not the rule: the loop stops as soon as a round produces nothing new, which is what makes
+#: repeated clarification cheap. Kept at the paper's value so a run that hits it is comparable.
+DEFAULT_MAX_ROUNDS = 5
+
 
 class VeGraphRuleError(ValueError):
     """The VeGraph model returned something outside the contract."""
@@ -45,6 +51,12 @@ class VeGraphLLM(Protocol):
 
     def verify_subassertion(self, triple: Mapping[str, Any]) -> str:
         """Return the stance of one triple: support/refute/irrelevant/unanswerable."""
+
+    #: Optional (B9 stage 2): ask a clarifying question about a sub-assertion that could not be
+    #: judged, and return the answer's rationale for the next round. Declared here as documentation;
+    #: the loop probes for it with `getattr` so a model without it still works.
+    #:
+    #: def clarify(self, triple: Mapping[str, Any], question: str) -> str: ...
 
 
 @dataclass(frozen=True)
@@ -99,6 +111,8 @@ class VeGraphResult:
     verdict: str
     degenerate: bool
     notes: tuple[str, ...] = ()
+    #: Clarification rounds actually used. 1 means the single-pass path ran (no clarifying model).
+    rounds: int = 1
 
     def sub_assertion_records(self) -> list[dict[str, Any]]:
         """``[{subject,predicate,object,stance}]`` -- verifier material, not box rows."""
@@ -113,6 +127,7 @@ def vegraph_verify(
     name_to_id: Mapping[str, str],
     alias_map: Mapping[str, str] | None = None,
     llm: VeGraphLLM | None = None,
+    max_rounds: int = DEFAULT_MAX_ROUNDS,
 ) -> VeGraphResult:
     """Resolve claim entities first, then verify every triple as a sub-assertion.
 
@@ -173,12 +188,60 @@ def vegraph_verify(
             notes=("unresolved_entities_block_stance",),
         )
 
+    # B9 stage 2: clarify -> feed the rationale back -> re-judge, bounded by k.
+    #
+    # A single pass over the triples is a dictionary hit with a model in the middle: a sub-assertion
+    # that comes back `unanswerable` stays unanswerable because nothing asks what is missing.
+    clarify = getattr(llm, "clarify", None)
+    rationales: dict[int, str] = {}
+    notes: list[str] = []
+    rounds = 0
     stances: list[tuple[Triple, str]] = []
-    for triple in triples:
-        stance = llm.verify_subassertion(triple.as_record())
-        if stance not in STANCES:
-            raise VeGraphRuleError(f"sub-assertion stance {stance!r} not in {STANCES}")
-        stances.append((triple, stance))
+
+    for round_no in range(1, int(max_rounds or 1) + 1):
+        rounds = round_no
+        stances = []
+        for triple in triples:
+            record = dict(triple.as_record())
+            rationale = rationales.get(id(triple), "")
+            if rationale:
+                record["rationale"] = rationale
+            stance = llm.verify_subassertion(record)
+            if stance not in STANCES:
+                raise VeGraphRuleError(f"sub-assertion stance {stance!r} not in {STANCES}")
+            stances.append((triple, stance))
+
+        pending = [triple for triple, stance in stances if stance == "unanswerable"]
+        if not pending:
+            break
+        if not callable(clarify):
+            # No clarifying capability: say so rather than looping pointlessly.
+            if round_no == 1:
+                notes.append("no_clarify_capability=single_pass")
+            break
+
+        changed = False
+        for triple in pending:
+            question = (
+                f"要判断「{triple.subject} {triple.predicate} {triple.obj}」还缺什么？"
+                "请只依据原文说明。"
+            )
+            try:
+                answer = str(clarify(triple.as_record(), question) or "").strip()
+            except Exception:  # noqa: BLE001 - a failed clarification must not abort the stage
+                answer = ""
+            if answer and answer != rationales.get(id(triple), ""):
+                rationales[id(triple)] = answer
+                changed = True
+        if not changed:
+            # A round that learns nothing: the same question cannot produce a different answer.
+            notes.append(f"stopped_on_no_new_information_at_round_{round_no}")
+            break
+
+    if rounds >= int(max_rounds or 1) and any(
+        stance == "unanswerable" for _triple, stance in stances
+    ):
+        notes.append("unanswerable_after_max_rounds")
 
     verdict = verdict_from_stances(stance for _triple, stance in stances)
     return VeGraphResult(
@@ -190,4 +253,6 @@ def vegraph_verify(
         unresolved_entities=(),
         verdict=verdict,
         degenerate=False,
+        notes=tuple(notes),
+        rounds=rounds,
     )

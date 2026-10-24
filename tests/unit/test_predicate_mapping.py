@@ -40,7 +40,7 @@ from cbb_stage1.normalize import predicate_map as pmap
 from cbb_stage1.normalize.facts import chapter_fact_to_engine_output
 
 TEXT = (
-    "贝塔心叶与拉斐尔是朋友。他穿着黑色夹克。神殿在太平洋之上。低语者是一种能力。"
+    "言万心叶与拉斐尔是朋友。他穿着黑色夹克。神殿在太平洋之上。低语者是一种能力。"
 )
 
 
@@ -51,7 +51,7 @@ def _full_fact() -> ChapterFact:
         novel_id="contract",
         characters=[
             CharacterFact(
-                name="贝塔心叶",
+                name="言万心叶",
                 appearance="穿着黑色夹克",
                 abilities_gained=[
                     AbilityGained(dimension="技能", name="低语者", description="读心")
@@ -61,16 +61,16 @@ def _full_fact() -> ChapterFact:
         ],
         relationships=[
             RelationshipFact(
-                person_a="贝塔心叶",
+                person_a="言万心叶",
                 person_b="拉斐尔",
                 relation_type="朋友",
-                evidence="贝塔心叶与拉斐尔是朋友。",
+                evidence="言万心叶与拉斐尔是朋友。",
             ),
             RelationshipFact(
-                person_a="贝塔心叶",
+                person_a="言万心叶",
                 person_b="拉斐尔",
                 relation_type="师徒",
-                evidence="贝塔心叶与拉斐尔是朋友。",
+                evidence="言万心叶与拉斐尔是朋友。",
             ),
         ],
         locations=[
@@ -110,7 +110,7 @@ def _full_fact() -> ChapterFact:
                 item_name="糖",
                 item_type="食物",
                 action="赠予",
-                actor="贝塔心叶",
+                actor="言万心叶",
                 evidence="他穿着黑色夹克。",
             )
         ],
@@ -118,7 +118,7 @@ def _full_fact() -> ChapterFact:
             OrgEventFact(
                 org_name="黑手党",
                 org_type="组织",
-                member="贝塔心叶",
+                member="言万心叶",
                 action="逐出",
                 evidence="他穿着黑色夹克。",
             )
@@ -127,8 +127,8 @@ def _full_fact() -> ChapterFact:
             EventFact(
                 summary="两人交谈",
                 type="社交",
-                participants=["贝塔心叶"],
-                evidence="贝塔心叶与拉斐尔是朋友。",
+                participants=["言万心叶"],
+                evidence="言万心叶与拉斐尔是朋友。",
             )
         ],
     )
@@ -186,7 +186,7 @@ def test_two_party_predicates_use_registry_role_names() -> None:
     relation = next(
         a for a in output.assertions if a.predicate == "亲属"
     )
-    assert relation.roles["施事"] == "贝塔心叶"
+    assert relation.roles["施事"] == "言万心叶"
     assert relation.roles["受事"] == "拉斐尔"
     # The extractor's own word is preserved, not discarded.
     assert relation.qualifiers["relation_type"] == "师徒"

@@ -28,6 +28,8 @@ Work artifacts are disposable; every artifact write is atomic.
 
 from __future__ import annotations
 
+import inspect
+import json
 import logging
 import os
 import queue
@@ -42,7 +44,7 @@ from pathlib import Path
 from collections.abc import Mapping
 from typing import Any, Iterator, Sequence
 
-from cbb_stage1.ids import sha256_hex_bytes, sha256_hex_text
+from cbb_stage1.ids import sha256_hex_bytes, sha256_hex_text, sha256_text
 
 from cbb_stage1.agents import build_subagent_pool
 from cbb_stage1.config import Config
@@ -66,10 +68,11 @@ from .progress import (
     STAGE_ORDER,
     TOTAL_STAGES,
     ProgressStage,
-    check_interrupt,
     clear_interrupt,
     emit_progress,
     reset_progress,
+    safe_point_action,
+    set_control_dir,
     save_progress_log,
 )
 from .tracer import (
@@ -178,6 +181,9 @@ def build_engine(cfg: Config, gateway: Any = None) -> Engine:
         cfg.provider,
         llm=gateway.async_client if gateway is not None else None,
         model=cfg.model or None,
+        # The engine is built once for the whole book, so the per-unit tier budget is passed at call
+        # time (`extract(..., max_gleanings=...)`). Passing the global number here meant the three
+        # tiered budgets in Config had no effect at all.
         max_gleanings=cfg.max_gleanings,
     )
 
@@ -345,6 +351,7 @@ def _extract_one(
     unit,
     card: dict,
     known_entities: Sequence[Any] = (),
+    config: Any = None,
 ) -> _ExtractOutcome:
     """Call ``engine.extract`` for one unit (the thread-safe unit of work).
 
@@ -357,9 +364,34 @@ def _extract_one(
         # The fourth argument is the pre-scanned dictionary. It used to be a hardcoded
         # empty list, which is why every extraction ran without hints even though the
         # pre-scan had just run and the prompt builder could render them.
-        output = engine.extract(
-            unit.unit_id, unit.text, card, known_entities or []
-        )
+        # The per-unit tier budget, resolved here because the engine is built once per book. Passing
+        # only the global `max_gleanings` into `build_engine` meant the tiered budgets in Config were
+        # never consulted: a canonical character got the same extra passes as a walk-on.
+        gleanings = None
+        tier = str(getattr(unit, "tier", "") or "")
+        if config is not None and tier:
+            gleanings = int(config.for_tier(tier))
+        # Only engines that declare the parameter get it: `MockEngine.extract` does not, and passing
+        # it anyway raised TypeError inside the worker, turning every mocked run into a partial one.
+        # Detected from the signature rather than by catching TypeError, because a TypeError raised
+        # inside the engine must not be mistaken for "this engine does not take the argument".
+        accepts_gleanings = False
+        try:
+            accepts_gleanings = "max_gleanings" in inspect.signature(engine.extract).parameters
+        except (TypeError, ValueError):  # pragma: no cover - exotic callables
+            accepts_gleanings = False
+        if accepts_gleanings:
+            output = engine.extract(
+                unit.unit_id,
+                unit.text,
+                card,
+                known_entities or [],
+                max_gleanings=gleanings,
+            )
+        else:
+            output = engine.extract(
+                unit.unit_id, unit.text, card, known_entities or []
+            )
     except BaseException as exc:  # noqa: BLE001 - policy is applied by the caller
         return _ExtractOutcome(
             unit_id=unit.unit_id,
@@ -378,11 +410,12 @@ def _extract_from_pool(
     unit,
     card: dict,
     known_entities: Sequence[Any] = (),
+    config: Any = None,
 ) -> _ExtractOutcome:
     """C8 live path: each worker takes a thread-confined engine instance."""
     engine = pool.get()
     try:
-        return _extract_one(engine, unit, card, known_entities)
+        return _extract_one(engine, unit, card, known_entities, config)
     finally:
         pool.put(engine)
 
@@ -438,14 +471,57 @@ def _plan_unit(
     return _UnitPlan(index, unit, output_path, card, "pending")
 
 
+#: The one card field that cannot be part of its own preimage.
+_CARD_HASH_FIELD = "card_sha256"
+
+
+def _card_sha256(card: dict) -> str:
+    """Content hash of a dispatch card, excluding the hash field itself.
+
+    `sort_keys=True` because key order is not content: a hash that changes when a dict is rebuilt
+    would make "the same card" unprovable. This is what lets a reader verify that the card recorded
+    in the box is the card the candidate was extracted from.
+    """
+    payload = {key: value for key, value in card.items() if key != _CARD_HASH_FIELD}
+    return sha256_text(
+        json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    )
+
+
+#: How often a paused run re-checks its control flags. Short enough that an interrupt during a pause
+#: is honoured promptly; long enough not to spin a core.
+_PAUSE_POLL_SECONDS = 0.5
+
+
+def _resume_view(doc_status) -> dict[str, list[str]]:
+    """The resume grouping for the current table (A22): what needs work, and whether it already ran."""
+    from cbb_stage1.ingest.doc_status import resume_work
+
+    return resume_work(doc_status.rows)
+
+
+def _doc_status_table(work_root: Path):
+    """The per-unit document-state table under ``plan/`` (A22).
+
+    A thin wrapper so the loop reads as one line: the table is loaded once per run and saved after each
+    transition, which keeps the file usable if the process dies mid-book.
+    """
+    from cbb_stage1.ingest.doc_status import DocStatusTable
+
+    return DocStatusTable.load(work_root / "plan" / "doc-status.jsonl")
+
+
 def _card_for(unit, cfg: Config) -> dict:
     """Build the minimal Card v2 input passed to the engine for one unit.
 
     The full Card v2 (glossary/rolling/few-shot retrieval) belongs to the
     extraction-task boundary; this card carries the unit text metadata and the
     v6 instruction block, and is deterministic (no timestamps).
+
+    The card carries its own `card_sha256` so it can be identified after the fact: without it,
+    `produced_by` could say which prompt was used but never which *inputs*.
     """
-    return {
+    card = {
         "contract": "cbb-card/2",
         "book": {"id": cfg.book_id, "title": "", "genre": cfg.genre},
         "unit": {
@@ -471,6 +547,8 @@ def _card_for(unit, cfg: Config) -> dict:
             "forbidden": "不许用外部知识；不许补写未出现的设定。",
         },
     }
+    card[_CARD_HASH_FIELD] = _card_sha256(card)
+    return card
 
 
 @contextmanager
@@ -557,6 +635,8 @@ def run_pipeline(
     idempotency = IdempotencyStore(plan / "idempotency.json")
 
     reset_progress()
+    # A5: a detached pipeline can only see a pause through a file.
+    set_control_dir(work_root / "plan")
     clear_interrupt()
     telemetry.reset_telemetry()
     telemetry.start_timer("pipeline_total")
@@ -741,6 +821,16 @@ def run_pipeline(
                 previous_state=previous,
             )
             inc_plan.write(plan / "incremental-plan.json")
+            # The plan's cleanup list was computed and never read, so a shrunk book kept the
+            # removed units' engine artifacts forever. The replace half stays advisory — the
+            # postprocess stages rewrite those tables whole — and the plan file says so.
+            from cbb_stage1.incremental.runner import apply_cleanup_files
+
+            apply_cleanup_files(
+                work_root,
+                inc_plan,
+                live_unit_ids={unit.unit_id for unit in units},
+            )
             log_decision(
                 "incremental",
                 ["full", "incremental"],
@@ -764,7 +854,24 @@ def run_pipeline(
                 # engine work and before anything is written.
                 plans: list[_UnitPlan] = []
                 for index, unit in enumerate(units):
-                    if check_interrupt():
+                    # A5: the safe point is three-valued. Interrupt abandons the run; pause stops it
+                    # here and stays resumable. Only asking `check_interrupt()` meant a paused run kept
+                    # extracting, which is why stopping a run required killing the process.
+                    action = safe_point_action()
+                    if action == "wait":
+                        log_decision(
+                            "pause",
+                            ["continue", "wait"],
+                            "wait",
+                            "pause requested; waiting at the unit safe point",
+                        )
+                        # Re-check on an interval rather than sleeping on a bare flag: a pause whose
+                        # release never comes must still be interruptible, or the run hangs with no
+                        # way out but a kill.
+                        while safe_point_action() == "wait":
+                            time.sleep(_PAUSE_POLL_SECONDS)
+                        action = safe_point_action()
+                    if action == "stop":
                         log_decision(
                             "interrupt",
                             ["continue", "stop"],
@@ -883,6 +990,44 @@ def run_pipeline(
                                 # Collect in unit order; persistence stays ordered.
                                 for unit_plan in pending:
                                     outcomes[unit_plan.index] = futures[unit_plan.index].result()
+
+                # A22: record the whole batch as `pending` before anything runs. Without this a run that
+                # dies mid-book leaves no trace of the units it never reached, so a resume cannot tell
+                # "not started" from "failed".
+                doc_status = _doc_status_table(work_root)
+                # Collected here rather than appended to `warnings` (defined much later in the
+                # function): referencing a name that is not yet bound raises UnboundLocalError at the
+                # moment the exception fires, which buries the real failure.
+                doc_status_errors: list[str] = []
+                for unit_plan in plans:
+                    current = doc_status.state_of(unit_plan.unit.unit_id)
+                    if current is None:
+                        doc_status.transition(
+                            unit_plan.unit.unit_id, "pending", at=_now_iso()
+                        )
+                    elif current in ("processed", "failed"):
+                        # This run is a new attempt on the document; record that rather than appending a
+                        # second terminal row for the same attempt.
+                        doc_status.transition(
+                            unit_plan.unit.unit_id,
+                            "pending",
+                            detail=f"re-armed from {current}",
+                            at=_now_iso(),
+                        )
+                doc_status.save()
+                # The four-way split, in the log where an operator looks: unstarted / failed /
+                # in_flight / done. This is what `resume_work` is for.
+                log_decision(
+                    "doc_status",
+                    ["unstarted", "failed", "in_flight", "done"],
+                    "recorded",
+                    str(
+                        {
+                            key: len(value)
+                            for key, value in _resume_view(doc_status).items()
+                        }
+                    ),
+                )
 
                 # Phase 2 (main thread): persist / checkpoint / idempotency /
                 # task records strictly in unit order (single writer).
@@ -1005,6 +1150,20 @@ def run_pipeline(
                             )
                         checkpoint_mgr.mark_complete(unit.unit_id)
 
+                    # A22: the unit's terminal state, at the same single-writer point as the task record
+                    # so the two cannot disagree about what happened.
+                    try:
+                        doc_status.transition(
+                            unit.unit_id,
+                            "failed" if error else "processed",
+                            detail=error or "",
+                            at=_now_iso(),
+                        )
+                    except Exception as exc:  # noqa: BLE001 - status must not fail a run
+                        doc_status_errors.append(
+                            f"{unit.unit_id}: {type(exc).__name__}: {exc}"
+                        )
+                    doc_status.save()
                     emit_progress(
                         ProgressStage.EXTRACTING_CHARACTERS_AND_ENTITIES,
                         3,
@@ -1013,6 +1172,13 @@ def run_pipeline(
                         sub_current=position,
                         sub_total=len(units),
                     )
+        if doc_status_errors:
+            log_decision(
+                "doc_status",
+                ["recorded", "errors"],
+                "errors",
+                "; ".join(doc_status_errors[:3]),
+            )
         log_decision(
             "roles",
             list(role_runtime.FIVE_ROLES),
@@ -1146,6 +1312,15 @@ def run_pipeline(
                 units=unit_records,
                 created_at=result.started_at,
                 upstream={
+                    # How many independent items a postprocess stage may work on at
+                    # once. Stated explicitly so a stage reads one key instead of
+                    # introspecting Config, and so the gateway's max_concurrency can
+                    # be set to at least this value.
+                    "max_workers": int(getattr(cfg, "max_workers", 1) or 1),
+                    # B12: without this the abstain gate could only ever see its own default.
+                    "abstain_threshold": float(
+                        getattr(cfg, "abstain_threshold", 0.5) or 0.5
+                    ),
                     "nli": nli,
                     "nli_cfg": cfg,
                     "config": cfg,

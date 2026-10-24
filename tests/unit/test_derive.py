@@ -159,13 +159,13 @@ def test_validate_summary_tree_detects_missing_parent_and_cycle():
 
 def test_abduce_requires_missing_premises():
     with pytest.raises(ValueError):
-        abduce("book", "黑之魔王与贝塔心叶敌对", missing_premises=[])
+        abduce("book", "黑之魔王与言万心叶敌对", missing_premises=[])
 
 
 def test_abduce_creates_derived_only_candidate_record():
     hypothesis = abduce(
         "book",
-        "黑之魔王与贝塔心叶敌对",
+        "黑之魔王与言万心叶敌对",
         scope="foreshadow",
         missing_premises=["两人的直接冲突场景"],
         support=[{"unit_id": U1, "quote": "黑之魔王站在船头"}],
@@ -177,7 +177,7 @@ def test_abduce_creates_derived_only_candidate_record():
     )
     assert isinstance(hypothesis, Hypothesis)
     assert hypothesis.hypothesis_id == make_hypothesis_id(
-        "book", "foreshadow", "黑之魔王与贝塔心叶敌对"
+        "book", "foreshadow", "黑之魔王与言万心叶敌对"
     )
     record = hypothesis.to_record()
     assert record["hypothesis_id"].startswith("hy:")

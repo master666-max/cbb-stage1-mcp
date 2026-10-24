@@ -50,6 +50,14 @@ Usage::
 by ``box.writer.build_box``. The pipeline shell is expected to call this only
 when ``Config.incremental`` is true (the flag is already plumbed); this module
 itself never reads the config, so it stays testable without a ``Config``.
+
+The delta key is **content, not title**. The source keys by `title`: same name means same
+document, which loses a chapter whose title was edited while its text stayed byte-identical, and
+merges two chapters that happen to share one. This module keys by `sha256` plus the structural
+metadata the downstream stages consume, and pairs a renumbered-but-identical chapter through
+`_detect_renames`, so a renumbering is recorded as a rename rather than a delete plus an add.
+Deliberate, and a correctness improvement; stated because a reader comparing the two
+implementations would otherwise take it for an oversight.
 """
 
 from __future__ import annotations
@@ -146,6 +154,18 @@ def _canonical(payload: Any) -> str:
 
 def _sha256_text(text: str) -> str:
     return sha256_hex_text(text)
+
+
+#: The delta key is **content**, not title.
+#:
+#: The source keys incremental deltas by `title` — same name means same document. That loses a chapter
+#: whose title was edited while its text stayed byte-identical, and it merges two chapters that happen to
+#: share a title. This module keys by `sha256` (plus the structural metadata downstream stages consume)
+#: and pairs a renumbered-but-identical chapter through :func:`_detect_renames`, so a renumbering is
+#: recorded as a rename rather than a delete plus an add.
+#:
+#: The difference is deliberate and is a correctness improvement, not an oversight; it is written here
+#: because a reader comparing the two implementations would otherwise take it for one.
 
 
 def unit_fingerprint(record: Mapping[str, Any]) -> str:
@@ -497,6 +517,58 @@ def _table_ids(work_root: Path, relative: str, key: str) -> set[str]:
     }
 
 
+#: Cleanup may only remove generated artifacts, never a work table.
+_CLEANUP_PREFIXES = ("engine/", "plan/texts/")
+
+
+def _unit_id_from_engine_path(relative: str) -> str:
+    """``engine/u_tst_v01_c001.json`` -> ``u:tst:v01:c001`` (empty when not that shape)."""
+    if not relative.startswith("engine/"):
+        return ""
+    parts = Path(relative).stem.split("_")
+    if len(parts) < 4:
+        return ""
+    return ":".join(parts)
+
+
+def apply_cleanup_files(
+    work_root: str | Path,
+    plan: "IncrementalPlan",
+    *,
+    live_unit_ids: Set[str],
+) -> tuple[str, ...]:
+    """Delete the plan's stale engine artifacts, with guards.
+
+    Deleting the wrong file is not recoverable, so two rules bound this:
+
+    1. only paths under :data:`_CLEANUP_PREFIXES` are eligible — a plan entry naming a work table
+       is ignored rather than obeyed;
+    2. a file whose unit id is in ``live_unit_ids`` is kept, whatever the plan says.
+
+    Returns the entries actually deleted and records them on the plan (which is frozen, so the
+    record goes in through ``object.__setattr__``).
+    """
+    root = Path(work_root)
+    deleted: list[str] = []
+    for entry in plan.cleanup_files:
+        relative = str(entry).replace("\\", "/")
+        if not any(relative.startswith(prefix) for prefix in _CLEANUP_PREFIXES):
+            continue
+        path = root / relative
+        if not path.is_file():
+            continue
+        unit_id = _unit_id_from_engine_path(relative)
+        if unit_id and unit_id in live_unit_ids:
+            continue
+        try:
+            path.unlink()
+        except OSError:
+            continue
+        deleted.append(relative)
+    object.__setattr__(plan, "applied_cleanup", tuple(deleted))
+    return plan.applied_cleanup
+
+
 @dataclass(frozen=True)
 class IncrementalPlan:
     """Deterministic result of :func:`plan_incremental`.
@@ -547,6 +619,8 @@ class IncrementalPlan:
     unit_sha256: dict[str, str] = field(default_factory=dict)
     unit_fingerprints: dict[str, str] = field(default_factory=dict)
     dependency_edges: int = 0
+    #: Cleanup entries actually deleted (empty until :func:`apply_cleanup_files` runs).
+    applied_cleanup: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         """JSON-ready payload (deterministic key/order; usable as next state)."""
@@ -574,6 +648,17 @@ class IncrementalPlan:
             "unit_sha256": dict(sorted(self.unit_sha256.items())),
             "unit_fingerprints": dict(sorted(self.unit_fingerprints.items())),
             "dependency_edges": self.dependency_edges,
+            "applied_cleanup": list(self.applied_cleanup),
+            # `replace` is computed but not consumed: every table it names is rewritten whole by
+            # the postprocess stages, so dropping rows before recomputing changes nothing. Saying
+            # so is the difference between "the plan decided nothing needed replacing" and "the
+            # plan was never read".
+            "replace_advisory": (
+                "not applied: postprocess rewrites every listed table in full, so pruning rows "
+                "first is a no-op. Kept for a future incremental postprocess."
+            )
+            if self.replace
+            else "",
         }
 
     def write(self, path: str | os.PathLike[str]) -> Path:
@@ -592,7 +677,7 @@ class IncrementalPlan:
             "parent": self.parent,
             "changed_units": list(self.changed_units),
             "dirty_entities": list(self.changed_entities),
-            "replay_base": None,
+            "replay_base": self.parent,  # the box the plan was derived from; None on a full run
         }
 
 

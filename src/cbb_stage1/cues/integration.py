@@ -171,6 +171,47 @@ def run(work_root: str | Path, *, book_id: str, outputs: Any, units: Any,
         cues = from_outputs(output_rows, "cues")
     unit_order = dict(up.get("unit_order") or {}) or unit_order_from(units)
 
+    # D8: the codify gate. Opt-in, because it changes which cues advance and a silent behaviour change is
+    # exactly what this audit exists to prevent.
+    gate_rows: list[dict[str, Any]] = []
+    if bool(up.get("codify_gate")):
+        from cbb_stage1.cues.codify import codify_decision
+
+        by_unit: dict[str, list[dict[str, Any]]] = {}
+        for raw in cues:
+            if isinstance(raw, Mapping):
+                by_unit.setdefault(str(_setup_unit(raw) or ""), []).append(dict(raw))
+        known_kinds: set[str] = set()
+        approved: list[dict[str, Any]] = []
+        for unit_id, unit_cues in sorted(by_unit.items()):
+            unit_row = next(
+                (
+                    row
+                    for row in (units or ())
+                    if str(
+                        row.get("unit_id")
+                        if isinstance(row, Mapping)
+                        else getattr(row, "unit_id", "")
+                    )
+                    == unit_id
+                ),
+                None,
+            )
+            decision = codify_decision(
+                unit_row if isinstance(unit_row, Mapping) else {"unit_id": unit_id},
+                new_cues=unit_cues,
+                known_kinds=known_kinds if known_kinds else None,
+                signals=tuple(up.get("codify_signals") or ()),
+            )
+            gate_rows.append(decision.as_dict())
+            if decision.should_run:
+                approved.extend(unit_cues)
+            known_kinds |= {
+                str(cue.get("kind")) for cue in unit_cues if isinstance(cue, Mapping) and cue.get("kind")
+            }
+        cues = approved
+        write_jsonl(root / "cues" / "gate.jsonl", gate_rows)
+
     records: list[dict[str, Any]] = []
     violations: list[dict[str, Any]] = []
     for raw in cues:
@@ -206,6 +247,12 @@ def run(work_root: str | Path, *, book_id: str, outputs: Any, units: Any,
         "premature_payoff": premature,
         "violations": len(violations),
     }
+    if gate_rows:
+        ran = sum(1 for row in gate_rows if row["should_run"])
+        notes.append(
+            "codify 门控：%d/%d 单元放行（原因见 cues/gate.jsonl）" % (ran, len(gate_rows))
+        )
+
     return {
         "step": STEP,
         "book_id": book_id,

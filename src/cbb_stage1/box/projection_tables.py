@@ -207,26 +207,68 @@ def build_graph_edges(book_id: str, assertions: list[Mapping[str, Any]]) -> list
                     out.append(item["entity"])
         return list(dict.fromkeys(out))
 
+    # §5.15: an edge's strength aggregates over the **distinct source units** that assert the
+    # relation. Keying by assertion id meant every edge had exactly one assertion behind it and
+    # `strength` was that assertion's self-report — so one chapter repeating itself looked the same
+    # as five chapters agreeing.
+    grouped: dict[str, dict[str, Any]] = {}
     for assertion in assertions:
         ids = entity_ids(assertion.get("roles") or {})
         for i, left in enumerate(ids):
             for right in ids[i + 1 :]:
-                key = f"{left}|{right}|{assertion['predicate']}|{assertion['assertion_id']}"
-                eid = "g:" + _short(key)
-                if eid in found:
-                    continue
-                found[eid] = {
-                    "edge_id": eid,
-                    "book_id": book_id,
-                    "from": left,
-                    "to": right,
-                    "predicate": assertion["predicate"],
-                    "assertion_id": assertion["assertion_id"],
-                    "library": assertion["library"],
-                    "strength": float(assertion.get("confidence") or 0.0),
-                    "evidence_count": len(assertion.get("evidence") or []),
-                    "status": assertion.get("status", "asserted"),
-                }
+                key = f"{left}|{right}|{assertion['predicate']}"
+                bucket = grouped.setdefault(
+                    key,
+                    {
+                        "left": left,
+                        "right": right,
+                        "predicate": assertion["predicate"],
+                        "library": assertion["library"],
+                        "assertion_ids": [],
+                        "strength_by_unit": {},
+                        "evidence_count": 0,
+                        "status": assertion.get("status", "asserted"),
+                    },
+                )
+                assertion_id = str(assertion["assertion_id"])
+                if assertion_id not in bucket["assertion_ids"]:
+                    bucket["assertion_ids"].append(assertion_id)
+                bucket["evidence_count"] += len(assertion.get("evidence") or [])
+                # One confidence per unit: a unit asserting the same relation twice is still one
+                # witness, so keep the strongest and do not compound it.
+                confidence = float(assertion.get("confidence") or 0.0)
+                for item in assertion.get("evidence") or ():
+                    unit_id = str((item or {}).get("unit_id") or "")
+                    if not unit_id:
+                        continue
+                    previous = bucket["strength_by_unit"].get(unit_id, 0.0)
+                    bucket["strength_by_unit"][unit_id] = max(previous, confidence)
+
+    for key, bucket in grouped.items():
+        support_units = sorted(bucket["strength_by_unit"])
+        # 1 - Π(1 - c_i): "at least one of these independent units is right". Equals the single
+        # confidence for one unit, rises with distinct support, and cannot exceed 1.
+        product = 1.0
+        for unit_id in support_units:
+            product *= 1.0 - bucket["strength_by_unit"][unit_id]
+        strength = 0.0 if not support_units else min(1.0, max(0.0, 1.0 - product))
+        eid = "g:" + _short(key)
+        found[eid] = {
+            "edge_id": eid,
+            "book_id": book_id,
+            "from": bucket["left"],
+            "to": bucket["right"],
+            "predicate": bucket["predicate"],
+            # Primary assertion kept for readers that expect the singular field.
+            "assertion_id": bucket["assertion_ids"][0],
+            "assertion_ids": list(bucket["assertion_ids"]),
+            "library": bucket["library"],
+            "strength": strength,
+            "strength_method": "1-prod(1-c_i) over distinct units",
+            "support_units": support_units,
+            "evidence_count": bucket["evidence_count"],
+            "status": bucket["status"],
+        }
     return sorted(found.values(), key=lambda row: row["edge_id"])
 
 

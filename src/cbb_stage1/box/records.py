@@ -1233,6 +1233,11 @@ def normalize_merge(
         "at": at,
         "reversible": True,
     }
+    # The resolver keeps an `undo` payload precisely so a merge can be reversed; rebuilding the row
+    # field by field used to drop it, leaving `reversible: true` with nothing to reverse with.
+    undo = item.get("undo")
+    if isinstance(undo, Mapping) and undo:
+        record["undo"] = dict(undo)
     return record, problems
 
 

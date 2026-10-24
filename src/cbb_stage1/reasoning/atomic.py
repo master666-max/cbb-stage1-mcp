@@ -33,12 +33,27 @@ __all__ = [
 ]
 
 ATOMIC_VERDICTS: tuple[str, ...] = ("true", "false", "unverifiable")
+#: Upper bound on the decompose/verify rounds.
+#:
+#: **This is a bounded approximation, not the paper's rule.** A13-AFEV-2025 p.9 has the model decide
+#: each iteration whether "the extracted facts collectively provide sufficient coverage of the
+#: claim"; this constant caps the loop instead. The model *is* asked (`coverage_sufficient` below)
+#: and can stop the loop early, but a model that does not implement that method is bounded by this
+#: number alone, and the stop is then recorded as `unverifiable_after_max_rounds` rather than being
+#: presented as a coverage judgement.
 DEFAULT_MAX_ROUNDS = 3
 
 #: Retrieval hook: ``fact_text -> evidence quotes``. Optional; without it all
 #: facts see the claim-level evidence passed by the caller.
 Retriever = Callable[[str], Sequence[str]]
 
+
+
+#: Optional capability: "do the facts so far cover the claim?" (A13 p.9).
+#:
+#: Declared separately from :class:`AtomicLLM` on purpose — it is optional, so a model that lacks it
+#: keeps working and simply cannot stop the loop early. The check is a ``getattr``, not an isinstance.
+COVERAGE_METHOD = "coverage_sufficient"
 
 class AtomicRuleError(ValueError):
     """The AFEV model returned something that is not a legal atomic fact."""
@@ -164,6 +179,7 @@ def afev_verify(
     rounds = 0
     previous_texts: tuple[str, ...] | None = None
     stopped_on_repeat = False
+    stopped_on_coverage = False
     for round_no in range(1, max_rounds + 1):
         rounds = round_no
         texts = _clean_texts(list(llm.decompose(claim, context)))
@@ -186,6 +202,19 @@ def afev_verify(
         facts = tuple(shaped)
         if all(fact.verdict in ("true", "false") for fact in facts):
             break
+        # A13 p.9: the model decides whether coverage is sufficient. Optional — a model without the
+        # method simply cannot stop early, and the cap below still applies.
+        ask_coverage = getattr(llm, COVERAGE_METHOD, None)
+        if callable(ask_coverage):
+            try:
+                sufficient = bool(
+                    ask_coverage(claim, [fact.text for fact in facts])
+                )
+            except Exception:  # noqa: BLE001 - a failed judgement must not abort verification
+                sufficient = False
+            if sufficient:
+                stopped_on_coverage = True
+                break
         context = "\n".join(
             f"{fact.text}: {fact.rationale or ''}".strip() for fact in facts
             if fact.verdict == "unverifiable"
@@ -194,11 +223,13 @@ def afev_verify(
             break
 
     notes: list[str] = []
+    if stopped_on_coverage:
+        notes.append("stopped_on_sufficient_coverage")
     if stopped_on_repeat:
         # Named so a reader can tell "stopped because nothing changed" apart from
         # "ran out of rounds" — those are different findings about the evidence.
         notes.append("stopped_on_repeated_decomposition")
-    if context:
+    if context and not stopped_on_coverage:
         notes.append("unverifiable_after_max_rounds")
 
     return AFEVResult(

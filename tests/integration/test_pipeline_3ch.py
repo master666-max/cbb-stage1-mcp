@@ -10,7 +10,7 @@ from cbb_stage1.orchestrator.pipeline import run_pipeline
 def test_three_chapter_pipeline_with_mock_engine(tmp_path: Path):
     book = tmp_path / "book.txt"
     book.write_text(
-        "# 第1章 起\n\n贝塔心叶走进大厅，看见黑之魔王。\n\n"
+        "# 第1章 起\n\n言万心叶走进大厅，看见黑之魔王。\n\n"
         "# 第2章 承\n\n拉法把剑放在桌上，说这是证据。\n\n"
         "# 第3章 转\n\n苍蓝色的影子从墙后出现。\n",
         encoding="utf-8",

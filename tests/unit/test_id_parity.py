@@ -7,8 +7,8 @@ from cbb_stage1.resolve.merges import merge_id_for
 
 
 def test_entity_merge_cue_wrappers_delegate_to_ids():
-    assert make_entity_id("zj", "person", "贝塔心叶") == ids.entity_id(
-        "zj", "person", "贝塔心叶"
+    assert make_entity_id("zj", "person", "言万心叶") == ids.entity_id(
+        "zj", "person", "言万心叶"
     )
     assert merge_id_for("zj", "alias", ["e:2", "e:1"], "e:3") == ids.merge_id(
         "zj", "alias", ["e:2", "e:1"], "e:3"

@@ -167,7 +167,15 @@ def resolve_conflict(
         decision.setdefault("kind", "conflict")
         decision["conflict_id"] = str(conflict_id)
 
-    target["status"] = picked
+    # `status` is progress ("open" | "resolved"); the five-way choice is `decision`.
+    # This used to write the choice into `status`, which violated the closed set the box loader
+    # enforces (`box/writer.py:1074-1076`) — so adjudicating a conflict made the next build fail
+    # and left `decision` at None, losing the decision itself.
+    target["status"] = "resolved"
+    target["decision"] = picked
+    target["resolved_by"] = who
+    target["at"] = at or target.get("at") or ""
+    # Kept for readers and for older work tables; the box loader ignores keys it does not use.
     target["adjudicated_by"] = who
     target["adjudication"] = {
         "choice": picked,

@@ -23,9 +23,9 @@ def _statement(*quotes: str) -> Assertion:
         book_id="t",
         predicate="敌对",
         library="关系",
-        roles={"主体": "贝塔", "值": {"literal": "阿尔法"}},
+        roles={"主体": "言万", "值": {"literal": "露娜"}},
         claim_layer="statement",
-        speaker=Speaker(kind="entity", entity_id="e:t:person:1", name="阿尔法"),
+        speaker=Speaker(kind="entity", entity_id="e:t:person:1", name="露娜"),
         evidence=[
             Evidence(
                 unit_id="u:t:v01:c001",
@@ -41,8 +41,8 @@ def _statement(*quotes: str) -> Assertion:
 
 
 def test_statement_quotes_are_the_evidence() -> None:
-    statement = _statement("「好。把它毁掉吧。」", "「阿尔法小姐，退后！」")
-    assert _statement_quotes(statement) == ["「好。把它毁掉吧。」", "「阿尔法小姐，退后！」"]
+    statement = _statement("「好。把它毁掉吧。」", "「露娜小姐，退后！」")
+    assert _statement_quotes(statement) == ["「好。把它毁掉吧。」", "「露娜小姐，退后！」"]
 
 
 def test_statement_quotes_are_deduplicated() -> None:
@@ -72,7 +72,7 @@ def test_afev_prompt_includes_the_evidence_it_is_given() -> None:
             return '{"verdict": "true", "rationale": "ok"}'
 
     reasoning = ReasoningLLM(_LLM())
-    reasoning.verify("阿尔法与小兽敌对", ["「好。把它毁掉吧。」", "「阿尔法小姐，退后！」"])
+    reasoning.verify("露娜与小狗敌对", ["「好。把它毁掉吧。」", "「露娜小姐，退后！」"])
 
     assert captured, "verify must call the model"
     prompt = captured[0]
@@ -80,4 +80,4 @@ def test_afev_prompt_includes_the_evidence_it_is_given() -> None:
     # Every supplied quote must appear after the 证据 marker.
     tail = prompt.split("证据：", 1)[1]
     assert "「好。把它毁掉吧。」" in tail
-    assert "「阿尔法小姐，退后！」" in tail
+    assert "「露娜小姐，退后！」" in tail

@@ -27,7 +27,7 @@ from cbb_stage1.schemas import schemas_dir
 SCHEMAS = schemas_dir(Path(__file__).resolve().parents[2])
 UNIT = "u:t:v01:c001"
 TEXT = (
-    "「阿尔法小姐，那里是出口！」\n\n"
+    "「露娜小姐，那里是出口！」\n\n"
     "浑身是伤的男孩子拼命奔跑着，指向了光芒。\n\n"
     "（这孩子，要是能幸福就好了。）\n\n"
     "我怎么样都无所谓了。至少，这孩子要幸福。"

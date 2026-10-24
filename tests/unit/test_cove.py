@@ -28,10 +28,10 @@ import pytest
 
 from cbb_stage1.validate import cove
 
-CLAIM = "阿尔法在湖的浅滩发现一只六条腿的机械小兽，并认定它就是源体。"
+CLAIM = "露娜在湖的浅滩发现一只六条腿的机械小狗，并认定它就是母体。"
 EVIDENCE = (
     "湖的浅滩上，有什么小东西在滚动。",
-    "它的体型比起别的，更接近小兽……它有六条腿。",
+    "它的体型比起别的，更接近小狗……它有六条腿。",
 )
 
 
@@ -53,12 +53,12 @@ class RecordingLLM:
     ) -> None:
         self.prompts: list[str] = []
         self._questions = questions or [
-            "阿尔法在哪里发现那只生物？",
+            "露娜在哪里发现那只生物？",
             "那只生物有几条腿？",
-            "阿尔法认定它是什么？",
+            "露娜认定它是什么？",
             "那只生物是机械的吗？",
         ]
-        self._answers = answers or ["湖的浅滩", "六条", "源体", "是"]
+        self._answers = answers or ["湖的浅滩", "六条", "母体", "是"]
         self._contradictions = contradictions
         self._revision = revision
         self._index = 0
@@ -112,7 +112,7 @@ def test_the_answer_prompt_does_not_contain_the_claim() -> None:
     cove.answer_independently(question, llm=llm, evidence=EVIDENCE)
     prompt = llm.prompts[0]
     assert CLAIM not in prompt, "the claim must not be in the verification context"
-    assert "六条腿的机械小兽" not in prompt, "no fragment of the claim either"
+    assert "六条腿的机械小狗" not in prompt, "no fragment of the claim either"
     assert question in prompt
 
 
@@ -134,7 +134,7 @@ def test_an_answer_without_a_model_is_unsure_not_fabricated() -> None:
 # ── step 4: comparison and revision ─────────────────────────────────────────
 def test_a_consistent_claim_is_not_revised() -> None:
     llm = RecordingLLM(
-        answers=["湖的浅滩", "六条", "源体", "是"],
+        answers=["湖的浅滩", "六条", "母体", "是"],
         revision="",  # the model returns the claim unchanged
     )
     result = cove.cove_verify(CLAIM, llm=llm, evidence=EVIDENCE)
@@ -153,7 +153,7 @@ def test_a_reported_contradiction_triggers_a_revision() -> None:
     """Step 3 finds a contradiction -> step 4 runs and its text is the result."""
     llm = RecordingLLM(
         contradictions="Q2：答案说四条腿，主张说六条腿",
-        revision="阿尔法在湖的浅滩发现一只四条腿的机械小兽。",
+        revision="露娜在湖的浅滩发现一只四条腿的机械小狗。",
     )
     result = cove.cove_verify(CLAIM, llm=llm, evidence=EVIDENCE)
     assert result.status == "revised"
@@ -219,7 +219,7 @@ def test_the_cost_is_one_planning_call_plus_one_call_per_question() -> None:
     """
     llm = RecordingLLM(
         questions=["问一？", "问二？", "问三？"],
-        answers=["湖的浅滩", "六条", "源体"],
+        answers=["湖的浅滩", "六条", "母体"],
         contradictions="无矛盾",
     )
     cove.cove_verify(CLAIM, llm=llm, evidence=EVIDENCE, max_questions=3)

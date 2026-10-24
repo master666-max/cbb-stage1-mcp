@@ -12,6 +12,10 @@ Covers:
   degradation, never a fabricated description;
 * a protocol-conforming custom synthesiser no longer raises
   ``NotImplementedError``.
+
+
+A24 note: `describe` short-circuits a single deduplicated observation (it already is the
+description), so the degradation tests below supply two observations to reach the synthesizer.
 """
 
 from __future__ import annotations
@@ -133,7 +137,7 @@ def test_paraphrased_sentence_is_inferred_not_fabricated_as_supported() -> None:
         def synthesize(self, entity_id: str, fragments) -> str:
             return "他当时忍不住笑了。他笑了。"
 
-    result = describe("e1", ["他笑了"], synthesizer=CustomSynthesizer())
+    result = describe("e1", ["他笑了", "他怕水"], synthesizer=CustomSynthesizer())
 
     assert [s.inferred for s in result.sentences] == [True, False]
     assert result.sentences[1].fallbacks == ("他笑了",)
@@ -150,11 +154,13 @@ def test_custom_synthesizer_protocol_accepted_without_not_implemented() -> None:
             return "他笑了。"
 
     synthesizer = CustomSynthesizer()
-    result = describe("e1", ["他笑了", " 他笑了 "], synthesizer=synthesizer)
+    # Two *distinct* observations: `["他笑了", " 他笑了 "]` dedupes to one, which is short-circuited
+    # before the synthesizer and would prove nothing about the protocol.
+    result = describe("e1", ["他笑了", "他怕水"], synthesizer=synthesizer)
 
     assert result.mode == "synthesized"
     assert result.inferred_ratio == 0.0
-    assert synthesizer.calls == [("e1", ("他笑了",))]  # deduped before synthesis
+    assert synthesizer.calls == [("e1", ("他笑了", "他怕水"))]
 
 
 def test_duplicates_are_removed_before_synthesis() -> None:
@@ -173,13 +179,13 @@ def test_duplicates_are_removed_before_synthesis() -> None:
 
 
 def test_no_llm_degrades_to_observations_only() -> None:
-    result = describe("e1", ["他笑了"], synthesizer=MapReduceSynthesizer(None))
+    result = describe("e1", ["他笑了", "他怕水"], synthesizer=MapReduceSynthesizer(None))
 
     assert result.mode == "observations_only"
     assert result.text is None
     assert result.inferred_ratio is None
     assert any("synthesis unavailable" in note for note in result.notes)
-    assert [obs.text for obs in result.observations] == ["他笑了"]
+    assert [obs.text for obs in result.observations] == ["他笑了", "他怕水"]
 
 
 def test_llm_failure_degrades_with_reason() -> None:
@@ -187,7 +193,7 @@ def test_llm_failure_degrades_with_reason() -> None:
         def __call__(self, prompt: str) -> str:
             raise RuntimeError("network down")
 
-    result = describe("e1", ["他笑了"], synthesizer=MapReduceSynthesizer(Boom()))
+    result = describe("e1", ["他笑了", "他怕水"], synthesizer=MapReduceSynthesizer(Boom()))
 
     assert result.mode == "observations_only"
     assert result.text is None
@@ -200,7 +206,7 @@ def test_custom_synthesizer_crash_propagates() -> None:
             raise ValueError("bad implementation")
 
     with pytest.raises(ValueError):
-        describe("e1", ["他笑了"], synthesizer=Broken())
+        describe("e1", ["他笑了", "他怕水"], synthesizer=Broken())
 
 
 def test_empty_output_and_empty_observations_degrade() -> None:
@@ -208,12 +214,12 @@ def test_empty_output_and_empty_observations_degrade() -> None:
         def synthesize(self, entity_id: str, fragments) -> str:
             return "   "
 
-    empty_output = describe("e1", ["他笑了"], synthesizer=EmptySynthesizer())
+    empty_output = describe("e1", ["他笑了", "他怕水"], synthesizer=EmptySynthesizer())
     assert empty_output.mode == "observations_only"
     assert any("returned no text" in note for note in empty_output.notes)
 
     # A map-reduce LLM answering with whitespace is an unavailable LLM call.
-    unavailable = describe("e1", ["他笑了"], synthesizer=MapReduceSynthesizer(FakeLLM(["  "])))
+    unavailable = describe("e1", ["他笑了", "他怕水"], synthesizer=MapReduceSynthesizer(FakeLLM(["  "])))
     assert unavailable.mode == "observations_only"
     assert any("empty description" in note for note in unavailable.notes)
 

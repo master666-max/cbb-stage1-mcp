@@ -78,13 +78,13 @@ def _evidence(
 
 
 def _outputs() -> list[dict]:
-    speaker = {"kind": "entity", "entity_id": None, "name": "贝塔心叶"}
+    speaker = {"kind": "entity", "entity_id": None, "name": "言万心叶"}
     return [
         {
             "unit_id": UNIT1,
             "entities": [
                 {
-                    "canonical_name": "贝塔心叶",
+                    "canonical_name": "言万心叶",
                     "type": "person",
                     "aliases": ["心叶"],
                     "tier": "canonical",
@@ -109,9 +109,9 @@ def _outputs() -> list[dict]:
                 {
                     "predicate": "敌对",
                     "library": "关系",
-                    "roles": {"施事": "贝塔心叶", "受事": "拉法"},
+                    "roles": {"施事": "言万心叶", "受事": "拉法"},
                     "claim_layer": "fact",
-                    "evidence": [_evidence("贝塔心叶遇见拉法")],
+                    "evidence": [_evidence("言万心叶遇见拉法")],
                     "confidence": 0.9,
                     "confidence_method": "evidence_span",
                 },
@@ -119,9 +119,9 @@ def _outputs() -> list[dict]:
                 {
                     "predicate": "敌对",
                     "library": "关系",
-                    "roles": {"主体": "贝塔心叶", "对象": "拉法"},
+                    "roles": {"主体": "言万心叶", "对象": "拉法"},
                     "claim_layer": "fact",
-                    "evidence": [_evidence("贝塔心叶遇见拉法")],
+                    "evidence": [_evidence("言万心叶遇见拉法")],
                     "confidence": 0.8,
                     "confidence_method": "evidence_span",
                 },
@@ -129,9 +129,9 @@ def _outputs() -> list[dict]:
                 {
                     "predicate": "赐予",
                     "library": "关系",
-                    "roles": {"施事": "贝塔心叶", "受事": "拉法"},
+                    "roles": {"施事": "言万心叶", "受事": "拉法"},
                     "claim_layer": "fact",
-                    "evidence": [_evidence("贝塔心叶遇见拉法")],
+                    "evidence": [_evidence("言万心叶遇见拉法")],
                     "confidence": 0.5,
                     "confidence_method": "engine_self",
                 },
@@ -232,20 +232,20 @@ def test_resolve_writes_identity_tables(wired):
 
     candidates = _read_jsonl(root / "entity_candidates.jsonl")
     names = {row["canonical_name"] for row in candidates}
-    assert names == {"贝塔心叶", "拉法", "心叶"}
+    assert names == {"言万心叶", "拉法", "心叶"}
     assert "老人" not in names
     assert all("大哥" not in row["aliases"] for row in candidates)
 
     alias_payload = json.loads((root / "alias_map.json").read_text(encoding="utf-8"))
     assert alias_payload["contract"] == "cbb-alias-map/1"
-    assert alias_payload["alias_map"]["心叶"] == "贝塔心叶"
+    assert alias_payload["alias_map"]["心叶"] == "言万心叶"
     assert alias_payload["alias_map"]["拉法尔"] == "拉法"
     assert alias_payload["fanout"]["dropped_entities"] == ["老人"]
 
     by_name = {row["canonical_name"]: row for row in candidates}
-    assert by_name["贝塔心叶"]["units"] == [UNIT1]
+    assert by_name["言万心叶"]["units"] == [UNIT1]
     assert by_name["心叶"]["units"] == [UNIT2]
-    assert by_name["贝塔心叶"]["entity_id"].startswith("e:tst:person:")
+    assert by_name["言万心叶"]["entity_id"].startswith("e:tst:person:")
 
 
 def test_candidate_entity_ids_match_the_box_identity_formula(wired):
@@ -282,7 +282,7 @@ def test_resolve_merges_are_reversible_and_acyclic(wired):
         assert ledger.resolve(entity_id) in candidate_ids
 
     by_name = {candidate["canonical_name"]: candidate for candidate in candidates}
-    assert row["to"] == by_name["贝塔心叶"]["entity_id"]
+    assert row["to"] == by_name["言万心叶"]["entity_id"]
     assert row["from"] == [by_name["心叶"]["entity_id"]]
 
 
@@ -310,14 +310,14 @@ def test_assemble_writes_validated_assertions(wired):
     by_name = {row["canonical_name"]: row["entity_id"] for row in candidates}
 
     fact = next(row for row in rows if row["claim_layer"] == "fact")
-    assert fact["roles"] == {"施事": by_name["贝塔心叶"], "受事": by_name["拉法"]}
+    assert fact["roles"] == {"施事": by_name["言万心叶"], "受事": by_name["拉法"]}
 
     statement = next(row for row in rows if row["claim_layer"] == "statement")
     # name -> entity id mapping + merge redirect landed on the surviving entity
-    assert statement["roles"]["施事"] == by_name["贝塔心叶"]
-    assert statement["speaker"]["entity_id"] == by_name["贝塔心叶"]
+    assert statement["roles"]["施事"] == by_name["言万心叶"]
+    assert statement["speaker"]["entity_id"] == by_name["言万心叶"]
     assert statement["evidence"][0]["mode"] == "dialogue"
-    assert statement["evidence"][0]["speaker"]["entity_id"] == by_name["贝塔心叶"]
+    assert statement["evidence"][0]["speaker"]["entity_id"] == by_name["言万心叶"]
     for row in rows:
         for value in row["roles"].values():
             assert value in candidate_ids
@@ -373,7 +373,7 @@ def test_assemble_redirects_merged_entity_ids(tmp_path):
     assembled = assemble_run(work, **kwargs)
     rows = _read_jsonl(work / "assemble" / "assertions.jsonl")
     statement = next(row for row in rows if row["claim_layer"] == "statement")
-    assert statement["roles"]["施事"] == candidates["贝塔心叶"]
+    assert statement["roles"]["施事"] == candidates["言万心叶"]
     assert assembled["resolution"]["merge_redirects"] == 1
 
 
@@ -524,13 +524,13 @@ def test_supported_qa_promotes_a_derived_fact_only(tmp_path):
     questions = [
         make_question(
             "q1",
-            "贝塔心叶与谁敌对？",
+            "言万心叶与谁敌对？",
             answers=[make_answer("拉法", UNIT1, 0, 2, "拉法")],
             stance="support",
         ).model_dump(),
         make_question(
             "q2",
-            "贝塔心叶与谁敌对？",
+            "言万心叶与谁敌对？",
             answers=[make_answer("拉法", UNIT2, 0, 2, "拉法")],
             stance="support",
         ).model_dump(),
@@ -591,7 +591,7 @@ def test_invalid_qa_answer_is_refused_not_fabricated(tmp_path):
     )
     bad_question = {
         "qid": "q1",
-        "question": "贝塔心叶与谁敌对？",
+        "question": "言万心叶与谁敌对？",
         "stance": "support",
         "answers": [
             {

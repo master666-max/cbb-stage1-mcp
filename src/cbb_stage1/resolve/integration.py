@@ -470,6 +470,35 @@ def run(
     }
 
     alias_path = _write_json_atomic(alias_map_path(root), alias_payload)
+    # D5: fold this run's candidates into the parent box's when incremental, so a rerun grows the entity
+    # table instead of replacing it. Content is the key (sha256), never the name — a retitled entity with
+    # identical text is the same entity, which `title` matching would lose.
+    entity_report: dict[str, Any] = {}
+    if isinstance(upstream, Mapping) and upstream.get("incremental"):
+        parent_candidate = upstream.get("incremental_parent")
+        if parent_candidate:
+            try:
+                from cbb_stage1.box import atomic as _atomic
+                from cbb_stage1.incremental.entities_append import merge_entities
+
+                parent_path = Path(str(parent_candidate)) / "resolve" / "entity_candidates.jsonl"
+                if parent_path.is_file():
+                    parent_rows = [
+                        dict(row) for row in _atomic.read_jsonl(parent_path) if isinstance(row, Mapping)
+                    ]
+                    if parent_rows:
+                        candidates, entity_report = merge_entities(parent_rows, candidates)
+                        notes.append(
+                            "incremental：实体表在父箱基础上合并（合并 %d 条、新增 %d 条）"
+                            % (entity_report["merged"], entity_report["appended"])
+                        )
+            except Exception as exc:  # noqa: BLE001 - a bad parent must not lose the stage
+                notes.append(
+                    "incremental：父箱实体表不可读（%s: %s），退回全量候选"
+                    % (type(exc).__name__, exc)
+                )
+                entity_report = {}
+
     candidates_path = _write_jsonl_atomic(entity_candidates_path(root), candidates)
     merge_path = _write_jsonl_atomic(merges_path(root), merge_rows)
 

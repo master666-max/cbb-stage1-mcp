@@ -14,23 +14,23 @@ from pathlib import Path
 from cbb_stage1.validate.integration import run as run_validate
 
 UNIT = "u:t:v01:c001"
-QUOTE = "「这家伙…… 就是源体……──这个终末的源头。」"
+QUOTE = "「这家伙…… 就是母体……──这个终末的源头。」"
 TEXT = (
-    "「嗯？怎么了贝塔同学。你怕狗吗？」\n\n"
+    "「嗯？怎么了言万同学。你怕狗吗？」\n\n"
     + QUOTE
     + "\n\n（这么小只，这么柔弱的生物？）"
 )
 
 
 class FakeVerifier:
-    """A verifier that says the quote was said by 贝塔."""
+    """A verifier that says the quote was said by 言万."""
 
     def __init__(self) -> None:
         self.prompts: list[str] = []
 
     def generate(self, prompt: str) -> str:  # noqa: ANN001
         self.prompts.append(prompt)
-        return '{"verdict": "support", "rationale": "上一句点名问了贝塔"}'
+        return '{"verdict": "support", "rationale": "上一句点名问了言万"}'
 
 
 def _write(path: Path, rows: list[dict]) -> None:
@@ -51,7 +51,7 @@ def _build_work(root: Path) -> None:
         "library": "关系",
         "roles": {"施事": "e:t:person:0001", "受事": "e:t:person:0002"},
         "claim_layer": "statement",
-        "speaker": {"kind": "entity", "entity_id": "e:t:person:0002", "name": "贝塔"},
+        "speaker": {"kind": "entity", "entity_id": "e:t:person:0002", "name": "言万"},
         "evidence": [
             {
                 "unit_id": UNIT,
@@ -71,8 +71,8 @@ def _build_work(root: Path) -> None:
     _write(
         root / "identity" / "entities.jsonl",
         [
-            {"entity_id": "e:t:person:0002", "canonical_name": "贝塔", "aliases": []},
-            {"entity_id": "e:t:person:0001", "canonical_name": "阿尔法", "aliases": []},
+            {"entity_id": "e:t:person:0002", "canonical_name": "言万", "aliases": []},
+            {"entity_id": "e:t:person:0001", "canonical_name": "露娜", "aliases": []},
         ],
     )
     texts = root / "plan" / "texts"
@@ -103,7 +103,7 @@ def test_the_verdict_is_written_back_to_the_assertion(tmp_path: Path) -> None:
     verification = rows[0]["verification"]
     assert verification["verdict"] == "support"
     assert verification["speaker_check"] == "llm"
-    assert "贝塔" in verification["rationale"] or verification["rationale"]
+    assert "言万" in verification["rationale"] or verification["rationale"]
     assert verifier.prompts, "the verifier must actually be asked"
 
 
@@ -114,7 +114,7 @@ def test_the_speaker_is_never_removed_by_a_verdict(tmp_path: Path) -> None:
 
     class Refuting:
         def generate(self, prompt: str) -> str:  # noqa: ANN001
-            return '{"verdict": "against", "rationale": "是阿尔法说的"}'
+            return '{"verdict": "against", "rationale": "是露娜说的"}'
 
     run_validate(
         root,
@@ -131,7 +131,7 @@ def test_the_speaker_is_never_removed_by_a_verdict(tmp_path: Path) -> None:
         if line.strip()
     ]
     assert rows[0]["verification"]["verdict"] == "against"
-    assert rows[0]["speaker"]["name"] == "贝塔", "the verdict must not edit the record"
+    assert rows[0]["speaker"]["name"] == "言万", "the verdict must not edit the record"
 
 
 def test_without_the_flag_nothing_is_checked(tmp_path: Path) -> None:

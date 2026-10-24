@@ -99,6 +99,9 @@ class AgreementReport:
     sample: tuple[str, ...] = ()
     method: str = METHOD
     reason: str = ""
+    #: ``distinct_models`` means the labels came from different models (real inter-annotator
+    #: agreement); ``single_model`` means one model asked several times (self-consistency).
+    independence: str = ""
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -111,6 +114,7 @@ class AgreementReport:
             "disagreements": list(self.disagreements),
             "labels": [label.as_dict() for label in self.labels],
             "reason": self.reason,
+            "independence": self.independence,
         }
 
     def soft_gate(self) -> dict[str, Any]:
@@ -124,6 +128,8 @@ class AgreementReport:
             "annotator_sample": len(self.sample),
             "annotators": self.annotators,
             "disagreements": len(self.disagreements),
+            # The caveat travels with the number: a κ from one model is self-consistency.
+            "annotator_independence": self.independence,
         }
 
 
@@ -187,6 +193,25 @@ def _ask(llm: Any, prompt: str) -> str:
         return ""
 
 
+def _models_by_annotator(
+    llm: Any, names: Sequence[str]
+) -> dict[str, Any]:
+    """Resolve ``llm`` into one model per annotator.
+
+    A mapping must cover every requested name: silently reusing one model for a missing name would
+    produce a number that looks independent and is not.
+    """
+    if not isinstance(llm, Mapping):
+        return {name: llm for name in names}
+    missing = [name for name in names if llm.get(name) is None]
+    if missing:
+        raise ValueError(
+            f"llm mapping is missing annotator(s) {missing}; every annotator needs its own model or "
+            "the labels are not independent"
+        )
+    return {name: llm[name] for name in names}
+
+
 def independent_label(
     claim_ids: Sequence[str],
     *,
@@ -198,8 +223,12 @@ def independent_label(
 ) -> AgreementReport:
     """Have several labellers judge the same claims, each in a fresh context.
 
-    Each prompt names its own annotator and no other, and carries no previous verdict —
-    that is what makes the labels independent rather than one opinion recorded repeatedly.
+    Each prompt names its own annotator and no other, and carries no previous verdict.
+
+    ``llm`` may be one model or a ``{annotator: model}`` mapping. **Only the mapping gives
+    independence**: one model asked three times measures its own self-consistency, and the report says
+    which of the two happened (`independence`). Without that distinction a κ of 0.8 from a single model
+    reads as "three readers agreed", which is the opposite of what it means.
     """
     names = tuple(str(name) for name in (annotators or ()) if str(name).strip())
     if llm is None or len(names) < 2:
@@ -220,6 +249,10 @@ def independent_label(
 
     texts = claims or {}
     evidence_map = evidence_by_claim or {}
+    models = _models_by_annotator(llm, names)
+    independence = (
+        "distinct_models" if isinstance(llm, Mapping) else "single_model"
+    )
     labels: list[Label] = []
     for claim_id in sample:
         claim_text = str(texts.get(claim_id) or "").strip()
@@ -232,7 +265,11 @@ def independent_label(
                 evidence=_evidence_block(evidence),
             )
             labels.append(
-                Label(claim_id=claim_id, annotator=name, verdict=_normalise_verdict(_ask(llm, prompt)))
+                Label(
+                    claim_id=claim_id,
+                    annotator=name,
+                    verdict=_normalise_verdict(_ask(models[name], prompt)),
+                )
             )
 
     # pairwise κ against the first labeller, then average: the paper-level metric is
@@ -264,4 +301,5 @@ def independent_label(
         disagreements=disagreements,
         annotators=len(names),
         sample=sample,
+        independence=independence,
     )

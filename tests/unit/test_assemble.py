@@ -414,14 +414,23 @@ def test_assembler_quarantines_statement_without_speaker():
     assert "speaker" in item.detail
 
 
-def test_assembler_quarantines_unreliable_narration_without_speaker():
+def test_unreliable_narration_is_kept_as_a_statement_attributed_to_the_narrator():
+    """It used to be quarantined, so the flag deleted narration instead of lowering its layer.
+
+    "The narrator claims X" is the honest reading of unreliable narration, and it is a claim a reader
+    needs — dropping it loses the evidence that anything was said at all. The old assertion expected
+    `accepted_count == 0`, which pinned the loss as the specification.
+    """
     result = _assemble(
         _assertion(claim_layer="fact", speaker=None),
         narrator_reliability="unreliable",
     )
-    assert result.accepted_count == 0
-    assert result.quarantined[0].reason == "claim_layer_conflict"
+    assert result.accepted_count == 1
+    assert not result.quarantined
     assert result.downgrades[0].applied == "statement"
+    accepted = result.accepted[0]
+    assert accepted.claim_layer == "statement"
+    assert accepted.speaker is not None and accepted.speaker.kind == "narrator"
 
 
 def test_assembler_unknown_predicate_goes_to_proposals_only():

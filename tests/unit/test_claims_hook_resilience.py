@@ -35,7 +35,7 @@ def _work(root: Path) -> None:
         "library": "关系",
         "roles": {"施事": "e:t:person:0001", "受事": "e:t:person:0002"},
         "claim_layer": "statement",
-        "speaker": {"kind": "entity", "entity_id": "e:t:person:0001", "name": "阿尔法"},
+        "speaker": {"kind": "entity", "entity_id": "e:t:person:0001", "name": "露娜"},
         "evidence": [
             {
                 "unit_id": unit,
@@ -80,7 +80,7 @@ def _work(root: Path) -> None:
             {
                 "statement_assertion_id": "a:stmt0000000001",
                 "questions": [
-                    {"qid": "q1", "question": "阿尔法要毁掉它吗？", "answer": "yes"}
+                    {"qid": "q1", "question": "露娜要毁掉它吗？", "answer": "yes"}
                 ],
             },
             ensure_ascii=False,

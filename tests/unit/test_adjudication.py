@@ -41,7 +41,7 @@ QUARANTINE = {
     "item_id": "assertion:u:t:v01:c001",
     "kind": "assertion",
     "reason": "ref_missing",
-    "detail": "entity name not resolved: 源体",
+    "detail": "entity name not resolved: 母体",
     "source_run": "run:1",
 }
 
@@ -100,12 +100,20 @@ def test_a_conflict_resolution_writes_a_decision_row(work: Path) -> None:
 
 
 def test_the_conflict_itself_is_closed_with_the_choice(work: Path) -> None:
+    """闭合用 status=resolved，五选一进 decision。
+
+    这条测试原先断言 ``status == "right"``，那是把缺陷当成了期望：``status`` 的闭集只有
+    ``("open", "resolved")``，五选一属于 ``decision``；写进 ``status`` 会让下次 ``build_box``
+    抛 ``bad conflict status 'right'``。
+    """
     adjudication.resolve_conflict(
         work, conflict_id="cf:1", choice="right", by="张三", reason="r"
     )
     conflicts = _read_jsonl(work / "audit" / "conflicts.jsonl")
     assert len(conflicts) == 1, "冲突记录不许被删"
-    assert conflicts[0]["status"] == "right"
+    assert conflicts[0]["status"] == "resolved", "status 只能取 open/resolved"
+    assert conflicts[0]["decision"] == "right", "五选一必须落在 decision"
+    assert conflicts[0]["resolved_by"] == "张三"
     assert conflicts[0]["adjudicated_by"] == "张三"
 
 

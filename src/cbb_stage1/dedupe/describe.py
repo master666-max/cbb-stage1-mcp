@@ -547,6 +547,26 @@ def describe(
             notes=("no observations to synthesise; returning empty observation list", dedupe_note),
         )
 
+    # A24: one deduplicated observation IS the description. The source short-circuits here, and the
+    # reason is not only cost: a model asked to summarise one sentence may paraphrase it, and a
+    # paraphrased description can no longer be quoted against the text. Dedupe has already collapsed
+    # repeats, so this check is on `kept`, not the raw input.
+    if len(kept) == 1:
+        return DescribeResult(
+            entity_id=entity_id,
+            mode="single_observation",
+            text=kept[0].text,
+            sentences=(
+                SynthesizedSentence(text=kept[0].text, fallbacks=(kept[0].text,), inferred=False),
+            ),
+            observations=tuple(kept),
+            fragment_dedupe=dedupe,
+            notes=(
+                "single observation: returned verbatim without synthesis",
+                dedupe_note,
+            ),
+        )
+
     try:
         text = synthesizer.synthesize(entity_id, tuple(obs.text for obs in kept))
     except SynthesisUnavailable as exc:

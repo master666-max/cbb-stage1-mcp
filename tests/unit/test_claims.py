@@ -348,8 +348,8 @@ def test_unresolved_entities_block_stance_and_force_insufficient():
 def test_resolve_entities_uses_alias_map_before_stance():
     resolution = resolve_entities(
         ["心叶", "神秘人"],
-        name_to_id={"贝塔心叶": "e:zj:p:1"},
-        alias_map={"心叶": "贝塔心叶"},
+        name_to_id={"言万心叶": "e:zj:p:1"},
+        alias_map={"心叶": "言万心叶"},
     )
     assert resolution.resolved == {"心叶": "e:zj:p:1"}
     assert resolution.unresolved == ("神秘人",)
@@ -500,16 +500,16 @@ def test_identity_to_claim_chain_composes():
 
     alias_map = build_alias_map([
         EntityDictEntry(
-            name="贝塔心叶", entity_type="person", frequency=10,
+            name="言万心叶", entity_type="person", frequency=10,
             aliases=["心叶"], source="freq",
         )
     ])
     resolution = resolve_entities(
-        ["心叶"], name_to_id={"贝塔心叶": "e:zj:p:1"}, alias_map=alias_map
+        ["心叶"], name_to_id={"言万心叶": "e:zj:p:1"}, alias_map=alias_map
     )
     assert resolution.resolved["心叶"] == "e:zj:p:1"
 
-    speaker = Speaker(kind="entity", entity_id="e:zj:p:1", name="贝塔心叶")
+    speaker = Speaker(kind="entity", entity_id="e:zj:p:1", name="言万心叶")
     raw = _statement(
         speaker=speaker,
         evidence=[

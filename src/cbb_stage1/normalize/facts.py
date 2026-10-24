@@ -29,6 +29,7 @@ from .tier import assign_tiers
 
 from cbb_stage1.models import (
     Assertion,
+    Cue,
     EngineOutput,
     Entity,
     Event,
@@ -128,7 +129,7 @@ def infer_speaker(text: str, start: int, end: int, mode: str) -> Speaker | None:
     followed by a speech verb in the same paragraph, on either side of the quote:
 
         「……」拉法说着        -> 拉法
-        贝塔叶低声说道：「……」  -> 贝塔叶
+        言万叶低声说道：「……」  -> 言万叶
 
     If nothing matches it returns `None` rather than guessing, and the caller
     falls back to narration evidence. A wrong speaker is worse than no speaker:
@@ -636,6 +637,15 @@ def chapter_fact_to_engine_output(
                 "time_expr": str(ev.time_expr),
                 "anchor_unit": unit_id,
             }
+            # D10: `story_time` had a schema slot and no producer, so it was null in every box.
+            # Parsed here because this is where the expression is known. The parser refuses
+            # times of day on purpose — "清晨" is not a calendar interval, and inventing one would
+            # overstate the evidence.
+            from cbb_stage1.temporal.story_time import parse_story_time
+
+            story_time = parse_story_time(ev.time_expr)
+            if story_time is not None:
+                time_record["story_time"] = story_time
         events.append(
             Event(
                 book_id=book_id,
@@ -671,13 +681,79 @@ def chapter_fact_to_engine_output(
 
     mentions.sort(key=lambda m: (m.start, m.end))
 
+    # ── cues -> foreshadowing records ────
+    # Nothing produced cues before this: `ChapterFact` had no field, so the hardcoded `cues=[]`
+    # was the only possible outcome and the whole 埋线 library was empty in every run.
+    # Every name already in this output, so a cue that names a character points at that character
+    # instead of creating a second entity for the same word.
+    from cbb_stage1.resolve.integration import entity_id_for
+
+    entity_by_name: dict[str, Entity] = {}
+    for known in entities:
+        entity_by_name.setdefault(known.canonical_name, known)
+        for alias in known.aliases:
+            entity_by_name.setdefault(alias, known)
+
+    cue_records: list[Cue] = []
+    for cue in getattr(fact, "cues", []) or []:
+        setup_evidence = _anchor(unit_id, text, cue.setup, cue.evidence_speaker)
+        if not setup_evidence:
+            # An unanchored setup cannot be told apart from an invented one. Drop it.
+            notes.append(f"cue dropped (setup not found in the unit): {cue.subject}")
+            continue
+        total_quotes += 1
+        anchored_quotes += 1
+        payoff_evidence = (
+            _anchor(unit_id, text, cue.payoff, cue.evidence_speaker) if cue.payoff else []
+        )
+        # D12: a cue's subject is a first-class entity, not a bare string. If the name is already
+        # known, reuse it — the same word must not become two entities. Otherwise register a clue
+        # entity so the subject gets an id, aliases, a tier, mentions and a card like any other.
+        subject_literal = str(cue.subject).strip()
+        known_entity = entity_by_name.get(subject_literal)
+        if known_entity is not None:
+            clue_subject_id = entity_id_for(
+                book_id, known_entity.type, known_entity.canonical_name
+            )
+        elif subject_literal:
+            _add_entity(subject_literal, "clue", [], 0.5, tier=_tier_of(subject_literal))
+            clue_subject_id = entity_id_for(book_id, "clue", subject_literal)
+        else:
+            clue_subject_id = None
+
+        cue_records.append(
+            Cue(
+                book_id=book_id,
+                kind=cue.kind,
+                subject={
+                    "entity_id": clue_subject_id,
+                    "literal": str(cue.subject),
+                },
+                setup={
+                    "unit_id": unit_id,
+                    "evidence": [item.model_dump(mode="json") for item in setup_evidence],
+                },
+                reinforce=[],
+                trigger={"unit_id": None, "event_id": None, "condition": cue.expected, "evidence": []},
+                payoff={
+                    "unit_id": unit_id if payoff_evidence else None,
+                    "event_id": None,
+                    "evidence": [item.model_dump(mode="json") for item in payoff_evidence],
+                },
+                status="candidate",
+                expected=cue.expected,
+                confidence=float(cue.confidence),
+                deps=[],
+            )
+        )
+
     return EngineOutput(
         unit_id=unit_id,
         mentions=mentions,
         entities=entities,
         assertions=assertions,
         events=events,
-        cues=[],
+        cues=cue_records,
         summary=None,
         abstain=False,
         notes=notes,

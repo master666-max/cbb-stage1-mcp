@@ -44,6 +44,7 @@ __all__ = [
     "OpenIEResult",
     "build_entity_extract_prompt",
     "build_rdf_triple_prompt",
+    "looks_like_context_overflow",
     "filter_entities",
     "filter_triples",
     "openie_result_to_engine_output",
@@ -63,6 +64,16 @@ ENTITY_EXTRACT_SYSTEM_PROMPT = """你是一个性能优异的实体提取系统�
 请注意以下要求：
 - 将代词（如“你”、“我”、“他”、“她”、“它”等）转化为对应的实体命名，以避免指代不清。
 - 尽可能多的提取出段落中的全部实体；
+- 只提取段落里出现的实体，不要补充常识或推测。
+
+示例输入：
+```
+林昭推开院门，看见苏棠正在檐下磨刀。他对她说，明日就走。
+```
+示例输出：
+[ "林昭", "院门", "苏棠", "刀", "明日" ]
+
+说明：示例中的「他」指林昭、「她」指苏棠——代词必须还原成实体名，不能作为实体输出。
 """
 
 RDF_TRIPLE_EXTRACT_SYSTEM_PROMPT = """你是一个性能优异的RDF（资源描述框架，由节点和边组成，节点表示实体/资源、属性，边则表示了实体和实体之间的关系以及实体和属性的关系。）构造系统。你的任务是根据给定的段落和实体列表构建RDF图。
@@ -79,23 +90,85 @@ RDF_TRIPLE_EXTRACT_SYSTEM_PROMPT = """你是一个性能优异的RDF（资源描
 请注意以下要求：
 - 每个三元组应包含每个段落的实体命名列表中的至少一个命名实体，但最好是两个。
 - 将代词（如“你”、“我”、“他”、“她”、“它”等）转化为对应的实体命名，以避免指代不清。
+- 关系词用原文里出现的说法，不要替换成更「标准」的同义词。
+
+示例输入：
+```
+林昭推开院门，看见苏棠正在檐下磨刀。他对她说，明日就走。
+```
+示例输出：
+[
+        ["林昭","推开","院门"],
+        ["林昭","看见","苏棠"],
+        ["苏棠","正在","磨刀"],
+        ["林昭","对","苏棠"],
+        ["林昭","说","明日就走"]
+]
+
+说明：示例中的「他」还原为「林昭」、「她」还原为「苏棠」；关系词取自原文。
 """
 
 
-def build_entity_extract_prompt(paragraph: str, context_hint: str = "") -> str:
-    """User prompt for stage 1 (NER), source layout preserved."""
+#: Worked example shown to the model. The paper's Appendix I is a demonstration, not a format sample:
+#: the input contains a pronoun and the output shows it resolved. That is what changes behaviour.
+ONE_SHOT_DEMO = """示例（仅用于说明格式与粒度，**不要**从示例里提取）：
+输入：
+```
+林昭推开院门，看见苏棠正在檐下磨刀。他对她说，明日就走。
+```
+输出：
+[ "林昭", "院门", "苏棠", "刀", "明日" ]
+"""
+
+
+def build_entity_extract_prompt(
+    paragraph: str, context_hint: str = "", one_shot: bool = True
+) -> str:
+    """User prompt for stage 1 (NER).
+
+    ``one_shot=True`` (the paper's setting) puts a worked demonstration before the real paragraph, so
+    the model sees a pronoun resolved rather than only a format sample. ``one_shot=False`` restores
+    the 0-shot prompt for callers that would rather not pay the tokens.
+    """
     hint = f"\n\n已有上下文（仅作参考）：\n{context_hint}" if context_hint else ""
-    return f"""段落：
+    demo = ONE_SHOT_DEMO + "\n" if one_shot else ""
+    return f"""{demo}段落：
 ```
 {paragraph}
 ```{hint}"""
 
 
-def build_rdf_triple_prompt(paragraph: str, entities: list[str], context_hint: str = "") -> str:
-    """User prompt for stage 2 (RDF triples), source layout preserved."""
+ONE_SHOT_TRIPLE_DEMO = """示例（仅用于说明关系词取自原文，**不要**从示例里提取）：
+输入：
+```
+林昭推开院门，看见苏棠正在檐下磨刀。他对她说，明日就走。
+```
+输出：
+[
+        ["林昭","推开","院门"],
+        ["林昭","看见","苏棠"],
+        ["苏棠","正在","磨刀"],
+        ["林昭","对","苏棠"],
+        ["林昭","说","明日就走"]
+]
+"""
+
+
+def build_rdf_triple_prompt(
+    paragraph: str,
+    entities: list[str],
+    context_hint: str = "",
+    one_shot: bool = True,
+) -> str:
+    """User prompt for stage 2 (RDF triples).
+
+    Same one-shot arrangement as stage 1: a worked demonstration first, then the real paragraph and
+    the entity list to relate.
+    """
     entities_json = json.dumps(entities, ensure_ascii=False)
     hint = f"\n\n已有上下文（仅作参考）：\n{context_hint}" if context_hint else ""
-    return f"""段落：
+    demo = ONE_SHOT_TRIPLE_DEMO + "\n" if one_shot else ""
+    return f"""{demo}段落：
 ```
 {paragraph}
 ```
@@ -107,6 +180,31 @@ def build_rdf_triple_prompt(paragraph: str, entities: list[str], context_hint: s
 
 
 # ── Errors / result records ──────────────────────────────────────
+
+
+#: Wording that means "the input was too long", across the providers this project talks to.
+_CONTEXT_OVERFLOW_MARKERS: tuple[str, ...] = (
+    "maximum context length",
+    "context length",
+    "context_length_exceeded",
+    "context window",
+    "too many tokens",
+    "reduce the length",
+    "prompt is too long",
+    "超出上下文",
+    "上下文长度",
+    "输入过长",
+)
+
+
+def looks_like_context_overflow(exc: BaseException | str) -> bool:
+    """True when a failure means the input did not fit, so re-splitting can recover it.
+
+    Deliberately narrow: only the length signals match. A network error, a rate limit or a malformed
+    response must not trigger a re-split, because splitting cannot fix them and multiplies the calls.
+    """
+    text = str(exc).lower()
+    return any(marker in text for marker in _CONTEXT_OVERFLOW_MARKERS)
 
 
 class OpenIEError(RuntimeError):
@@ -132,6 +230,10 @@ class OpenIEResult:
     docs: list[OpenIEDoc] = field(default_factory=list)
     usage: LlmUsage = field(default_factory=LlmUsage)
     failed: list[Paragraph] = field(default_factory=list)
+    #: How many paragraphs had to be re-split because the model's context was too small. Recorded so a
+    #: reader can tell a one-pass paragraph from a recovered one, and so a systematically undersized
+    #: chunk target shows up as a number instead of as silent retries.
+    resplit: int = 0
 
     @property
     def entities(self) -> list[str]:
@@ -315,7 +417,11 @@ class OpenIEExtractor:
         llm,
         *,
         retries: int = 2,
-        retry_delay: float = 0.0,
+        # The source waits 5s between attempts so a rate limit or a cold model can recover. With 0 the
+        # attempts fire back to back: one transient failure becomes three, costs three times as much,
+        # and still fails. Note that retries=2 means two retries plus the first attempt, which is the
+        # source's three attempts — the audit called this an off-by-one and it is not.
+        retry_delay: float = 5.0,
         target_chars: int = 800,
         min_chars: int = 10,
         max_entities: int = 100,
@@ -357,6 +463,14 @@ class OpenIEExtractor:
             try:
                 doc, usage = await self.extract_one(paragraph, context_hint=context_hint)
             except (OpenIEError, LLMError, ValueError) as exc:
+                if looks_like_context_overflow(exc):
+                    # The only recoverable failure: the input did not fit. The text is unchanged, so
+                    # retrying it as-is fails identically — split and retry the halves.
+                    recovered = await self._resplit_and_extract(
+                        paragraph, context_hint=context_hint, result=result
+                    )
+                    if recovered is not None:
+                        continue
                 logger.warning(
                     "openie paragraph %s failed: %s", paragraph.sha256[:12], exc
                 )
@@ -369,6 +483,63 @@ class OpenIEExtractor:
                 f"all {len(paragraphs)} paragraphs failed two-stage extraction"
             )
         return result
+
+    async def _resplit_and_extract(
+        self,
+        paragraph: Paragraph,
+        *,
+        context_hint: str,
+        result: "OpenIEResult",
+    ) -> bool | None:
+        """Split an overflowing paragraph in half and extract each part.
+
+        Returns True when at least one half produced a document. Returns None when the paragraph cannot
+        be split further — the caller then records it as failed, because there is no smaller unit to
+        send and looping would never terminate.
+        """
+        text = paragraph.text
+        if len(text) < 2:
+            return None
+        middle = len(text) // 2
+        pieces = [text[:middle], text[middle:]]
+        produced = False
+        offset = paragraph.start
+        from cbb_stage1.ids import sha256_hex_text
+
+        for piece in pieces:
+            if not piece.strip():
+                offset += len(piece)
+                continue
+            child = Paragraph(
+                text=piece,
+                start=offset,
+                end=offset + len(piece),
+                sha256=sha256_hex_text(piece),
+            )
+            offset += len(piece)
+            try:
+                doc, usage = await self.extract_one(child, context_hint=context_hint)
+            except (OpenIEError, LLMError, ValueError) as exc:
+                if looks_like_context_overflow(exc):
+                    # Still too long: recurse. Bounded by the length halving each time.
+                    nested = await self._resplit_and_extract(
+                        child, context_hint=context_hint, result=result
+                    )
+                    if nested is not None:
+                        produced = produced or nested
+                        continue
+                logger.warning(
+                    "openie re-split piece %s failed: %s", child.sha256[:12], exc
+                )
+                result.failed.append(child)
+                continue
+            result.docs.append(doc)
+            result.usage = result.usage + usage
+            produced = True
+        if produced:
+            result.resplit += 1
+            return True
+        return None
 
     async def extract_one(
         self, paragraph: Paragraph, *, context_hint: str = ""
@@ -401,6 +572,10 @@ class OpenIEExtractor:
                     raise OpenIEError("empty text response")
                 return content, usage
             except Exception as exc:  # noqa: BLE001 - retried, then re-raised
+                if looks_like_context_overflow(exc):
+                    # The input did not fit; retrying it unchanged cannot help, and the backoff would
+                    # delay the caller's re-split by retries x delay before any recovery starts.
+                    raise
                 last_error = exc
                 if attempt < self.retries:
                     logger.warning(

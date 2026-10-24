@@ -52,6 +52,7 @@ from .confidence import (
     verification_level,
 )
 from cbb_stage1.confidence import score as confidence_score
+from cbb_stage1.orchestrator.parallel import run_ordered, stage_workers
 from .speaker_verify import verify_speaker_quote
 from .conflicts import (
     CONFLICT_KINDS,
@@ -158,28 +159,41 @@ def _cue_quarantine(cues: list[dict[str, Any]],
     return rows
 
 
-def _entity_tiers(root: Path) -> dict[str, str]:
-    """entity_id -> tier, from the identity table.
+#: Where an entity's tier can be read, most authoritative first.
+#:
+#: `identity/entities.jsonl` is box-side: it is written while the box is built, after merges, so
+#: it describes the final entity — but it does not exist during a run. `resolve/entity_candidates
+#: .jsonl` is the work-layer table the resolve stage always writes. Reading only the first one
+#: left every assertion at `minor` in a real run, which deleted §5.15's "tier decides how hard
+#: this is verified" decision without saying so.
+_TIER_TABLES = ("identity/entities.jsonl", "resolve/entity_candidates.jsonl")
 
-    The tier decides how hard an assertion is verified (§5.15), so it has to come
-    from the entity the assertion is about, not from the assertion itself.
+
+def _entity_tiers(root: Path) -> dict[str, str]:
+    """entity_id -> tier, from the most authoritative table that exists.
+
+    The tier decides how hard an assertion is verified (§5.15), so it has to come from the entity
+    the assertion is about, not from the assertion itself.
     """
-    path = root / "identity" / "entities.jsonl"
     tiers: dict[str, str] = {}
-    if not path.exists():
-        return tiers
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if not line.strip():
+    for relative in _TIER_TABLES:
+        path = root / relative
+        if not path.exists():
             continue
-        try:
-            row = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if not isinstance(row, Mapping):
-            continue
-        entity_id = str(row.get("entity_id") or "")
-        tier = str(row.get("tier") or "minor")
-        if entity_id:
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(row, Mapping):
+                continue
+            entity_id = str(row.get("entity_id") or "")
+            if not entity_id or entity_id in tiers:
+                # Earlier tables win, so a merged box-side tier is not overwritten.
+                continue
+            tier = str(row.get("tier") or "minor")
             tiers[entity_id] = tier if tier in ("canonical", "major", "minor") else "minor"
     return tiers
 
@@ -605,9 +619,18 @@ def run(work_root: str | Path, *, book_id: str, outputs: Any, units: Any,
     speaker_status: dict[str, int] = {}
     speaker_checked = 0
     if up.get("verify_speaker"):
-        speaker_cache: dict = {}
         unit_texts = _unit_text_index(root)
         speaker_llm, speaker_same_model = _speaker_asker(up)
+        # Hoisted: this rebuilt the roster from disk on every iteration of the loop.
+        cast = _speaker_cast(root)
+
+        # Collect the checkable statements in order, remembering the first context seen for
+        # each (quote, speaker) pair. The serial version used a shared memo dict, so every
+        # later occurrence reused whatever the FIRST occurrence computed — including its
+        # context. Deduplicating up front reproduces that exactly, without a race.
+        pending: list[tuple[dict[str, Any], tuple[str, str]]] = []
+        distinct: list[tuple[str, str]] = []
+        first_context: dict[tuple[str, str], str] = {}
         for assertion in assertions:
             if str(assertion.get("claim_layer") or "") != "statement":
                 continue
@@ -634,16 +657,41 @@ def run(work_root: str | Path, *, book_id: str, outputs: Any, units: Any,
                     unit_id = str(evidence.get("unit_id") or "")
                     if unit_id:
                         break
-            verdict = verify_speaker_quote(
+            context = _quote_context(unit_texts.get(unit_id, ""), quote)
+            key = (quote, name)
+            if key not in first_context:
+                first_context[key] = context
+                distinct.append(key)
+            pending.append((assertion, key))
+
+        def _check(key: tuple[str, str]) -> Any:
+            quote, name = key
+            return verify_speaker_quote(
                 quote=quote,
                 speaker_name=name,
-                context=_quote_context(unit_texts.get(unit_id, ""), quote),
-                cast=_speaker_cast(root),
+                context=first_context[key],
+                cast=cast,
                 llm=speaker_llm,
-                cache=speaker_cache,
+                # No shared memo: the dedupe already happened above, so a cache here would
+                # only reintroduce the race it is meant to avoid.
+                cache=None,
                 same_model=speaker_same_model,
             )
-            verification.update(verdict.as_dict())
+
+        # Nothing to ask the model for when there is no verifier; do not open a pool.
+        workers = (
+            stage_workers(up, len(distinct)) if speaker_llm is not None else 1
+        )
+        decided = run_ordered(
+            distinct, _check, workers=workers, thread_name_prefix="cbb-validate"
+        )
+        verdicts: dict[tuple[str, str], Any] = dict(zip(distinct, decided))
+
+        for assertion, key in pending:
+            verdict = verdicts[key]
+            verification = assertion.get("verification")
+            if isinstance(verification, dict):
+                verification.update(verdict.as_dict())
             speaker_status[verdict.verdict] = speaker_status.get(verdict.verdict, 0) + 1
             speaker_checked += 1
         if speaker_checked:

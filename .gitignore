@@ -1,26 +1,14 @@
-# runtime output
-artifacts/
-dist/
-*.log
-*.pid
-*.pid.rc
-work/
-box/
-
-# caches
+# local runtime artifacts — never commit
+# NOTE: patterns are root-anchored on purpose. A bare ``box/`` also matches
+# ``src/cbb_stage1/box/`` (the box builder package), which silently excluded a
+# whole source package from the export. Keep the leading slash.
+/.venv/
+/.pytest_cache/
 __pycache__/
 *.pyc
-.pytest_cache/
-.ruff_cache/
-.mypy_cache/
-.venv/
-venv/
-
-# recorded run fixtures (not shipped: copyrighted source)
-tests/data/
-
-# editors / OS
-.idea/
-.vscode/
-.DS_Store
-Thumbs.db
+/artifacts/
+/work/
+/box/
+/out-box/
+*.egg-info/
+dist/

@@ -134,15 +134,48 @@ def similar(a: str, b: str, threshold: float = 0.6) -> bool:
     return difflib.SequenceMatcher(None, a, b).ratio() >= threshold
 
 
-def cluster_answers(answers: Sequence[str], threshold: float = 0.6) -> list[list[str]]:
-    """Greedy clustering; the order of ``answers`` fixes the result (deterministic)."""
+#: Recorded in the result so a reader can tell a meaning-based entropy from a spelling-based one.
+METHOD_INJECTED = "injected"
+METHOD_PROXY = "char_bigram_proxy"
+
+
+def cluster_answers(
+    answers: Sequence[str],
+    threshold: float = 0.6,
+    *,
+    judge: Callable[[str, str], bool] | None = None,
+    judge_failures: list[int] | None = None,
+) -> list[list[str]]:
+    """Greedy clustering; the order of ``answers`` fixes the result (deterministic).
+
+    ``judge`` decides "do these two answers mean the same thing" when supplied — that is the paper's
+    criterion. Without it the character-bigram proxy is used, which compares spelling: it merges
+    "他活着"/"他死了" and splits "言万离开了"/"言万走了". The proxy is the offline default, not the
+    method, which is why the caller records which one ran.
+
+    Identical strings short-circuit to equal without consulting the judge: there is nothing to ask.
+    """
     clusters: list[list[str]] = []
     for raw in answers:
         normalised = normalize_answer(raw)
         if not normalised:
             continue
         for cluster in clusters:
-            if similar(normalised, cluster[0], threshold):
+            if normalised == cluster[0]:
+                cluster.append(normalised)
+                break
+            if judge is not None:
+                try:
+                    same = bool(judge(normalised, cluster[0]))
+                except Exception:  # noqa: BLE001 - one failed pair must not abort the estimate
+                    # Recorded so the caller can relabel the estimate: a mixture of judge and proxy
+                    # is not the paper's method.
+                    if judge_failures is not None:
+                        judge_failures.append(1)
+                    same = similar(normalised, cluster[0], threshold)
+            else:
+                same = similar(normalised, cluster[0], threshold)
+            if same:
                 cluster.append(normalised)
                 break
         else:
@@ -150,15 +183,32 @@ def cluster_answers(answers: Sequence[str], threshold: float = 0.6) -> list[list
     return clusters
 
 
-def semantic_entropy(answers: Sequence[str], threshold: float = 0.6) -> dict[str, Any]:
-    """Entropy over meaning clusters → confidence in ``[0, 1]``."""
-    clusters = cluster_answers(answers, threshold)
+def semantic_entropy(
+    answers: Sequence[str],
+    threshold: float = 0.6,
+    *,
+    judge: Callable[[str, str], bool] | None = None,
+) -> dict[str, Any]:
+    """Entropy over meaning clusters → confidence in ``[0, 1]``.
+
+    ``judge`` (when given) decides equivalence by meaning; otherwise the character-bigram proxy does.
+    Either way ``similarity_method`` says which one produced the numbers, so a proxy estimate is
+    never read as the paper's semantic entropy.
+    """
+    judge_failures: list[int] = []
+    clusters = cluster_answers(
+        answers, threshold, judge=judge, judge_failures=judge_failures
+    )
+    # A judge that failed even once leaves the clusters part-proxy, so the whole estimate is labelled
+    # as the proxy. Naming the injected judge would claim a method that did not produce this number.
+    method = METHOD_INJECTED if judge is not None and not judge_failures else METHOD_PROXY
     total = sum(len(c) for c in clusters)
     if total < 2:
         return {
             "usable": False,
             "reason": "有效样本 <2，熵无定义（N=%d）" % total,
             "clusters": clusters,
+            "similarity_method": method,
         }
     probs = [len(c) / total for c in clusters]
     entropy = -sum(p * math.log(p) for p in probs)
@@ -167,6 +217,7 @@ def semantic_entropy(answers: Sequence[str], threshold: float = 0.6) -> dict[str
     confidence = max(0.0, min(1.0, 1.0 - normalised))
     return {
         "usable": True,
+        "similarity_method": method,
         "samples": total,
         "clusters": clusters,
         "cluster_sizes": [len(c) for c in clusters],

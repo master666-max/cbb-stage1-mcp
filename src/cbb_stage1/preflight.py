@@ -438,14 +438,63 @@ def _probe_wiring() -> dict[str, Any]:
     fields = {name: getattr(Config, "model_fields", {}).get(name) is not None for name in ("nli_provider", "uq_head_checkpoint")}
     gaps = [
         "WIRE-01 confidence llm/sampler not injected into validate",
-        "WIRE-04 description synthesizer not injected into dedupe",
+        # WIRE-04 removed: `dedupe/integration.py:403-414` builds its own MapReduceSynthesizer from
+        # `upstream["config"].description_synthesis` + aux_llm. The probe was looking for a
+        # pipeline-side injection that the design never needed, so it reported a fixed gap forever.
         "WIRE-06 community has no LLM summary path",
+        # B5: `_auto_method` (confidence/__init__.py:194-210) decides from call-site kwargs only, so
+        # `Config.uq_head_checkpoint` is never consulted and `uq_heads.resolve_checkpoint` — which
+        # would read it — is dead. Pinned by `test_wiring_gaps_current.py`.
+        "WIRE-07 uq_heads: _auto_method only reads call-site kwargs, so config.uq_head_checkpoint "
+        "is never consulted and a configured checkpoint has no effect (B5)",
+        # A9: the AI Reader factory accepts `checkpoint_dir` and treats None as "no checkpoint", but
+        # no caller supplies it, so the checkpoint is off in every run.
+        "WIRE-08 ai_reader: checkpoint_dir is accepted by the factory but never supplied, so the "
+        "extraction checkpoint is disabled in every run (A9)",
     ]
+
+    # The receipt does not satisfy its own schema, and an agent reading the doctor is exactly who
+    # needs to know. Computed, not copied, so it cannot go stale.
+    receipt_gaps: list[str] = []
+    try:
+        from cbb_stage1.orchestrator.roles import receipt_contract_gaps
+
+        receipt_gaps = list(receipt_contract_gaps())
+    except Exception as exc:  # noqa: BLE001 - the probe must not fail the audit
+        receipt_gaps = []
+        fields = dict(fields)
+        fields["receipt_gap_error"] = f"{type(exc).__name__}: {exc}"
+
+    # The stage contracts, so an agent can see what each pass promises without importing it.
+    stage_contracts: dict[str, dict[str, Any]] = {}
+    try:
+        from cbb_stage1.orchestrator.postprocess import stage_registry
+
+        for name, spec in stage_registry().items():
+            stage_contracts[name] = {
+                "required": spec.required,
+                "criterion": spec.criterion,
+                "required_outputs": list(spec.required_outputs),
+                "toggle": spec.toggle,
+            }
+    except Exception as exc:  # noqa: BLE001 - the probe must not fail the audit
+        fields = dict(fields)
+        fields["stage_registry_error"] = f"{type(exc).__name__}: {exc}"
+
     return _check(
         "wiring",
         OBSERVED,
-        f"{len(gaps)} known injection gaps remain (WIRED != LIVE)",
-        {"gaps": gaps, "config_fields": fields},
+        (
+            f"{len(gaps)} known injection gaps remain (WIRED != LIVE); "
+            f"receipt contract unmet: {len(receipt_gaps)} field(s); "
+            f"{len(stage_contracts)} stage contract(s) declared"
+        ),
+        {
+            "gaps": gaps,
+            "config_fields": fields,
+            "receipt_contract_gaps": receipt_gaps,
+            "stage_contracts": stage_contracts,
+        },
     )
 
 
